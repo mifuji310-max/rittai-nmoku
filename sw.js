@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rittai-nmoku-v2';
+const CACHE_NAME = 'rittai-nmoku-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -54,7 +54,7 @@ self.addEventListener('fetch', event => {
 
   if (isHTML) {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-store' }) // ブラウザの裏キャッシュも使わせず、必ず最新を取りに行く
         .then(response => {
           const copy = response.clone();
           caches.open(CACHE_NAME)
