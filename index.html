@@ -29,7 +29,9 @@
   }
   #app{
     position: relative;
-    width: 100vw; height: 100vh;
+    width: 100vw;
+    height: 100vh;  /* dvh未対応ブラウザ向けの保険 */
+    height: 100dvh; /* スマホのアドレスバー分を含めた「実際に見えている高さ」に自動追従 */
     display: flex;
     flex-direction: column;
   }
@@ -43,13 +45,15 @@
     z-index: 50;
     background: var(--bg);
     display: flex;
-    align-items: center;
-    justify-content: center;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: 100vh;  /* dvh未対応ブラウザ向けの保険 */
+    max-height: 100dvh; /* 実際に見えている高さを超えたら必ず内部スクロールさせる */
   }
   .setup-card{
     width: min(560px, 92vw);
-    padding: 48px 40px 40px;
+    padding: 32px 40px 32px;
+    margin: auto; /* 中身が画面より高いときも上端まで届くように（中央寄せの見切れ防止） */
   }
   .setup-title{
     font-family: 'Zen Old Mincho', serif;
@@ -151,6 +155,7 @@
     font-size: 14px;
     text-shadow: 0 0 3px rgba(0,0,0,0.5);
   }
+  .color-swatch.light.selected::after{ color:#1a1a1a; text-shadow:none; }
   .color-swatch.disabled{
     opacity: 0.18;
     cursor: not-allowed;
@@ -606,6 +611,20 @@
     font-size: 10px; color: var(--ink-dim); margin-left: 4px;
     max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+
+  /* オンライン選択時のコンパクト表示（通常モードの見た目はそのまま） */
+  .setup-card.compact{ padding-top: 20px; padding-bottom: 22px; }
+  .setup-card.compact .setup-sub{ margin-bottom: 14px; }
+  .setup-card.compact .setup-section{ margin-bottom: 13px; }
+  .setup-card.compact .setup-label{ margin-bottom: 6px; }
+  .setup-card.compact .player-setup-row{ margin-bottom: 8px; }
+  .setup-card.compact .chip{ padding: 9px 0; font-size: 14px; }
+  .setup-card.compact .color-swatch{ width: 30px; height: 30px; }
+  .setup-card.compact .online-actions{ margin-top: 6px; }
+  .setup-card.compact .online-block{ margin: 4px 0; }
+  .setup-card.compact .online-divider{ margin: 9px 0 7px; }
+  .setup-card.compact .online-input{ padding: 9px 12px; font-size: 14px; }
+  .setup-card.compact .start-btn{ padding: 13px 0; margin-top: 8px; }
 </style>
 
 <meta name="theme-color" content="#ffffff">
@@ -645,11 +664,18 @@
       </div>
 
       <div class="setup-section">
-        <div class="setup-label">対戦形式 <span class="hint">CPUは後手</span></div>
+        <div class="setup-label">対戦形式</div>
         <div class="chip-row" id="modeChips">
           <div class="chip" data-mode="human">2人で対戦</div>
           <div class="chip" data-mode="cpu">CPUと対戦</div>
           <div class="chip" data-mode="online">オンライン対戦</div>
+        </div>
+        <div id="cpuPanel" style="display:none; margin-top:12px;">
+          <div class="setup-label">あなたの手番 <span class="hint">先攻=先手</span></div>
+          <div class="chip-row" id="cpuTurnChips">
+            <div class="chip" data-cputurn="first">あなたが先攻</div>
+            <div class="chip" data-cputurn="second">あなたが後攻</div>
+          </div>
         </div>
       </div>
 
@@ -834,6 +860,8 @@
     {id:'green',  label:'緑', hex:0x3FA34D},
     {id:'purple', label:'紫', hex:0x8B4FD1},
     {id:'orange', label:'橙', hex:0xE07A2F},
+    {id:'white',  label:'白', hex:0xF2F2EF},
+    {id:'black',  label:'黒', hex:0x2B2B2E},
   ];
 
   let SIZE = 4;
@@ -841,6 +869,7 @@
   let p1ColorId = 'red';
   let p2ColorId = 'blue';
   let gameMode = 'human'; // human: 2人対戦 / cpu: 後手CPU
+  let cpuPlayer = 2;      // CPU戦でCPUが担当する手番（2=あなたが先攻 / 1=あなたが後攻）
 
   /* ============================================================
      スタート画面ロジック
@@ -859,6 +888,9 @@
       const el = document.createElement('div');
       el.className = 'color-swatch' + (c.id===selectedId ? ' selected':'');
       el.style.background = '#' + c.hex.toString(16).padStart(6,'0');
+      // 明るい色（白など）は白背景に溶けるので薄い輪郭を足す
+      const isLight = ((c.hex>>16&255)*0.299 + (c.hex>>8&255)*0.587 + (c.hex&255)*0.114) > 200;
+      if(isLight){ el.style.boxShadow = 'inset 0 0 0 1px rgba(0,0,0,0.22)'; el.classList.add('light'); }
       el.dataset.colorId = c.id;
       el.title = c.label;
       el.addEventListener('click', ()=> onSelect(c.id));
@@ -903,13 +935,20 @@
   setupChipGroup(sizeChips, 'size', SIZE, (v)=>{ SIZE = v; refreshWinChipConstraints(); });
   setupChipGroup(winChips, 'win', WIN_LEN, (v)=>{ WIN_LEN = v; });
   setupChipGroup(modeChips, 'mode', gameMode, (v)=>{ gameMode = v; updateModeUI(); });
+  setupChipGroup(document.getElementById('cpuTurnChips'), 'cputurn', 'first', (v)=>{
+    cpuPlayer = (v === 'first') ? 2 : 1; // あなたが先攻ならCPUは後手(2)、後攻ならCPUは先手(1)
+  });
   refreshColorUI();
 
-  // 対戦形式に応じて、通常スタートボタン／オンラインパネルの表示を切り替える
+  // 対戦形式に応じて、通常スタートボタン／オンライン・CPUパネルの表示を切り替える
   function updateModeUI(){
     const isOnline = (gameMode === 'online');
+    const isCpu = (gameMode === 'cpu');
     document.getElementById('onlinePanel').style.display = isOnline ? 'block' : 'none';
+    document.getElementById('cpuPanel').style.display = isCpu ? 'block' : 'none';
     document.getElementById('startBtn').style.display = isOnline ? 'none' : 'block';
+    const card = document.querySelector('.setup-card');
+    if(card) card.classList.toggle('compact', isOnline);
     if(isOnline && !document.getElementById('createCode').value){
       document.getElementById('createCode').value = NET.genCode();
     }
@@ -971,6 +1010,7 @@
     moveHistory = [];
     pendingEval = null;
     lastMove = null;
+    winPieces = [];
     if(cpuTimer){ clearTimeout(cpuTimer); cpuTimer = null; }
   }
 
@@ -1049,6 +1089,7 @@
   let selectedColumn = null; // {x,z}
   let columnHighlightMesh = null; // 選択中の柱全体を示す縦ハイライト
   let pulseMeshes = [];
+  let winPieces = []; // 勝利ライン上の玉（点滅・拡大・縁色変更の対象）
   let ghostMesh = null; // 着地予告玉
   let pillarSegMaterials = []; // 柱セグメントのマテリアル（透過切替用）
   // 柱の表示モード: 0=棒あり / 1=線のみ（柱はワイヤー＋土台天面に格子線）
@@ -1093,6 +1134,7 @@
     // DOMレイアウト確定後に確実に画面へフィットさせる（縦横どちらでも適切な距離に）
     requestAnimationFrame(()=>{ refitView(); });
     setTimeout(()=>{ refitView(); }, 60);
+    scheduleCpuTurn(); // CPUが先攻(あなたが後攻)のときは初手を打たせる
   }
 
   function updatePlayerTagColors(){
@@ -1826,6 +1868,17 @@
         if(c.material && c.material.opacity!==undefined) c.material.opacity = 0.55 + Math.sin(t)*0.3;
       });
     }
+    // 勝利玉の点滅: 玉はプレイヤー色のまま、自分の色で明滅させ、金の縁をわずかに脈動
+    if(winPieces.length>0){
+      const tw = performance.now()*0.004;
+      const pulse = Math.sin(tw)*0.5 + 0.5; // 0〜1
+      winPieces.forEach(({mesh, outline})=>{
+        mesh.material.emissiveIntensity = 0.5 + pulse*1.5; // プレイヤー色の発光が明滅
+        const s = 1.13 + pulse*0.10;                       // 1.13〜1.23（大きく＋脈動）
+        mesh.scale.setScalar(s);
+        if(outline) outline.scale.setScalar(OUTLINE_PIECE * (1 + pulse*0.05));
+      });
+    }
     // 選択中キャップ（円盤）の明滅。操作中プレイヤーの純色で濃く発光させる
     function pulseCap(cap){
       if(selectedColumn && cap.userData.gx===selectedColumn.x && cap.userData.gz===selectedColumn.z){
@@ -1881,6 +1934,7 @@
     requestAnimationFrame(tickPulses);
   }
 
+  const WIN_OUTLINE_COLOR = 0xE8B23D; // 勝利玉の縁の色（金）
   function drawWinLine(line, player){
     const color = playerHexColor(player);
     const points = line.map(([x,y,z]) => gridToWorld(x,y,z));
@@ -1889,18 +1943,21 @@
       const dir = new THREE.Vector3().subVectors(b,a);
       const len = dir.length();
       const cylGeo = new THREE.CylinderGeometry(0.05, 0.05, len, 8);
-      const cylMat = new THREE.MeshBasicMaterial({color:0xE8B23D, transparent:true, opacity:0.85});
+      const cylMat = new THREE.MeshBasicMaterial({color:WIN_OUTLINE_COLOR, transparent:true, opacity:0.85});
       const cyl = new THREE.Mesh(cylGeo, cylMat);
       cyl.position.copy(a).lerp(b, 0.5);
       cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
       winLineGroup.add(cyl);
     }
+    winPieces = [];
     line.forEach(([x,y,z])=>{
       const mesh = pieceMeshes[x][z][y];
       if(mesh){
-        mesh.material.emissive = new THREE.Color(0xE8B23D);
-        mesh.material.emissiveIntensity = 0.7;
-        mesh.scale.set(1.15,1.15,1.15);
+        // 玉の色は変えず（プレイヤーの玉のまま）、縁（アウトライン）の色だけ金に変える
+        const outline = mesh.children.find(c=>c.userData && c.userData.isOutline);
+        if(outline) outline.material.color.setHex(WIN_OUTLINE_COLOR);
+        mesh.scale.set(1.15,1.15,1.15); // 大きく（今の実装のまま）
+        winPieces.push({mesh, outline});
       }
     });
   }
@@ -1924,11 +1981,14 @@
 
   function hexToCss(hex){ return '#' + hex.toString(16).padStart(6,'0'); }
 
+  function playerLabel(p){
+    return (p===1 ? '先手' : '後手') + (gameMode==='cpu' && p===cpuPlayer ? '（CPU）' : '');
+  }
   function updateTurnUI(){
     const hex = playerHexColor(currentPlayer);
     turnDot.style.background = hexToCss(hex);
     turnDot.style.boxShadow = `0 0 8px 1px ${hexToCss(hex)}`;
-    turnText.textContent = (currentPlayer===1 ? '先手':'後手' + (gameMode==='cpu' ? 'CPU' : '')) + 'の番';
+    turnText.textContent = playerLabel(currentPlayer) + 'の番';
     p1Tag.classList.toggle('active', currentPlayer===1);
     p2Tag.classList.toggle('active', currentPlayer===2);
     if(NET.online) NET.updateTurnBanner();
@@ -1940,7 +2000,7 @@
       resultKanji.style.color = '#8A8A86';
       resultSub.textContent = 'DRAW — 盤面が満ちました';
     } else {
-      resultKanji.textContent = (winner===1 ? '先手':'後手' + (gameMode==='cpu' ? 'CPU' : '')) + '勝利';
+      resultKanji.textContent = playerLabel(winner) + '勝利';
       resultKanji.style.color = hexToCss(playerHexColor(winner));
       resultSub.textContent = `${WIN_LEN}連達成`;
     }
@@ -2052,11 +2112,12 @@
   function chooseCpuMove(){
     const cols = legalColumns();
     if(cols.length === 0) return null;
+    const opp = 3 - cpuPlayer; // 相手（あなた）の手番
     // 1. CPUが即勝てる手
-    const win = cols.find(c => wouldWinAt(c.x, c.z, 2));
+    const win = cols.find(c => wouldWinAt(c.x, c.z, cpuPlayer));
     if(win) return win;
-    // 2. 先手の即勝ちを防ぐ手
-    const block = cols.find(c => wouldWinAt(c.x, c.z, 1));
+    // 2. 相手の即勝ちを防ぐ手
+    const block = cols.find(c => wouldWinAt(c.x, c.z, opp));
     if(block) return block;
     // 3. 中央付近をやや好むランダム。強すぎないCPUにする。
     const center = (SIZE-1)/2;
@@ -2070,18 +2131,18 @@
   }
 
   function scheduleCpuTurn(){
-    if(gameMode !== 'cpu' || currentPlayer !== 2 || gameOver || pendingEval || anyFalling) return;
+    if(gameMode !== 'cpu' || currentPlayer !== cpuPlayer || gameOver || pendingEval || anyFalling) return;
     refreshUndoButton();
     cpuTimer = setTimeout(()=>{
       cpuTimer = null;
-      if(gameMode !== 'cpu' || currentPlayer !== 2 || gameOver || pendingEval || anyFalling) return;
+      if(gameMode !== 'cpu' || currentPlayer !== cpuPlayer || gameOver || pendingEval || anyFalling) return;
       const move = chooseCpuMove();
       if(move) confirmDrop(move.x, move.z, true);
     }, 520);
   }
 
   function onCapTapped(x, z){
-    if(gameMode === 'cpu' && currentPlayer === 2) return;
+    if(gameMode === 'cpu' && currentPlayer === cpuPlayer) return;
     if(NET.online){
       // オンライン: 観戦者・相手の番・相手不在・送信中のときは操作不可
       if(NET.mySeat === 'spectator') return;
@@ -2113,7 +2174,7 @@
   }
 
   function confirmDrop(x,z, fromCpu=false){
-    if(gameMode === 'cpu' && currentPlayer === 2 && !fromCpu) return;
+    if(gameMode === 'cpu' && currentPlayer === cpuPlayer && !fromCpu) return;
     const result = dropPiece(x,z);
     if(!result) return;
     spawnPiece(result.x, result.y, result.z, result.player);
@@ -2166,6 +2227,7 @@
     resultOverlay.classList.remove('show');
     document.getElementById('showResultBtn').classList.remove('show');
     refreshUndoButton();
+    scheduleCpuTurn(); // CPUが先攻のときは初手を打たせる
   }
 
   // 勝利ラインの表示と勝利玉の強調を解除する（undoや再開時に使う）
@@ -2177,6 +2239,7 @@
       if(c.material) c.material.dispose();
     }
     // 全ての玉の強調をリセット
+    winPieces = [];
     for(let x=0;x<SIZE;x++)
       for(let z=0;z<SIZE;z++)
         for(let y=0;y<SIZE;y++){
@@ -2186,6 +2249,9 @@
             m.material.emissive = new THREE.Color(baseColor).multiplyScalar(0.15);
             m.material.emissiveIntensity = 1;
             m.scale.set(1,1,1);
+            // 縁（アウトライン）の色と太さを元に戻す
+            const outline = m.children.find(c=>c.userData && c.userData.isOutline);
+            if(outline){ outline.material.color.setHex(0x1a1a1a); outline.scale.setScalar(OUTLINE_PIECE); }
           }
         }
   }
@@ -2246,7 +2312,7 @@
   function refreshUndoButton(){
     const btn = document.getElementById('undoBtn');
     if(!btn) return;
-    btn.disabled = (moveHistory.length === 0) || anyFalling || (gameMode==='cpu' && currentPlayer===2);
+    btn.disabled = (moveHistory.length === 0) || anyFalling || (gameMode==='cpu' && currentPlayer===cpuPlayer);
   }
 
   /* ============================================================
@@ -2724,7 +2790,29 @@
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(console.error);
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      // ページを開くたびに新しいsw.jsがないか確認する
+      reg.update().catch(()=>{});
+
+      // 新しいservice workerが見つかったら、インストール完了を待って自動でページを最新化
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'activated') {
+            window.location.reload();
+          }
+        });
+      });
+    }).catch(console.error);
+
+    // 制御者が切り替わった（新しい版が有効になった）ときも、念のため最新化
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    });
   });
 }
 </script>
