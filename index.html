@@ -26,6 +26,8 @@
     color: var(--ink);
     font-family: 'Noto Sans JP', sans-serif;
     overflow: hidden;
+    overscroll-behavior-x: none; /* 画面端からのスワイプで「戻る」が誤発火するのを抑える */
+    overscroll-behavior-y: none;
   }
   #app{
     position: relative;
@@ -190,6 +192,15 @@
     min-height: 14px;
     letter-spacing: 0.05em;
   }
+  .app-footer{
+    text-align: center;
+    margin-top: 22px;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    color: var(--ink-dim);
+    opacity: 0.7;
+  }
+  .setup-card.compact .app-footer{ margin-top: 12px; }
 
   /* ============================================================
      ゲーム画面
@@ -258,12 +269,14 @@
     position: relative;
     min-height: 0;
     touch-action: none; /* ブラウザ標準のピンチズーム・スクロールと競合させない */
+    overscroll-behavior: none; /* 画面端スワイプでの「戻る」誤動作を抑える */
   }
   #canvas-wrap canvas{
     display:block;
     width: 100%; height: 100%;
     cursor: grab;
     touch-action: none;
+    overscroll-behavior: none;
   }
   #canvas-wrap canvas:active{ cursor: grabbing; }
 
@@ -722,6 +735,7 @@
 
       <button class="start-btn" id="startBtn">ゲームスタート</button>
       <div class="setup-warning" id="setupWarning"></div>
+      <div class="app-footer">v1.00 ／ © 2026 mifuji</div>
     </div>
   </div>
 
@@ -2076,7 +2090,6 @@
       const baseColor = playerHexColor(board[x][z][y]);
       mesh.material.emissive = new THREE.Color(baseColor).multiplyScalar(0.15);
       mesh.material.emissiveIntensity = 1;
-      mesh.scale.set(1,1,1);
     }
   }
 
@@ -2088,7 +2101,7 @@
     if(mesh){
       mesh.material.emissive = new THREE.Color(0xffffff);
       mesh.material.emissiveIntensity = 0.28;
-      mesh.scale.set(1.08,1.08,1.08);
+      // サイズは拡大しない（玉本来の大きさのまま、光らせるだけで直前の手と分かるようにする）
     }
   }
 
