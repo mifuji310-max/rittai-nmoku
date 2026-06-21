@@ -281,11 +281,18 @@
   #canvas-wrap canvas:active{ cursor: grabbing; }
 
   /* 手番表示: ヘッダー直下、最小限のチップ表示 */
-  .turn-banner{
+  .status-stack{
     position: absolute;
     top: 62px; left: 50%;
     transform: translateX(-50%);
     z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+  }
+  .turn-banner{
     display: flex;
     align-items: center;
     gap: 7px;
@@ -371,6 +378,18 @@
     border-color: var(--line-strong);
     background: var(--panel);
   }
+  .stamp-btn{
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.75);
+    color: var(--ink-dim);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .stamp-btn svg{ width: 16px; height: 16px; }
+  .stamp-btn:active{ transform: scale(0.92); background: var(--panel-2); }
   .player-tag .score{
     font-family: 'Zen Old Mincho', serif;
     font-size: 13px;
@@ -541,7 +560,7 @@
     .brand small{ font-size: 7px; margin-top: 1px; }
     .icon-btn{ width: 32px; height: 32px; }
     .icon-btn svg{ width: 15px; height: 15px; }
-    .turn-banner{ top: 10px; left: 130px; right: auto; transform: none; padding: 5px 12px 5px 9px; }
+    .status-stack{ top: 10px; left: 130px; right: auto; transform: none; align-items: flex-start; }
 
     /* フッターは横一列に戻し、高さを抑える */
     .footer-panel{ flex-direction: row; align-items: flex-end; padding: 8px 12px 8px; }
@@ -613,13 +632,152 @@
   }
   .wait-sub{ font-size: 11.5px; color: var(--ink-dim); margin: 12px 0 16px; }
   .net-banner{
-    position: absolute; top: 0; left: 0; right: 0; z-index: 40;
-    display: none; padding: 8px 12px; text-align: center;
-    font-size: 12px; font-weight: 500;
-    background: #B8472E; color: #fff;
+    display: none;
+    padding: 6px 16px;
+    border-radius: 20px;
+    text-align: center;
+    font-size: 11.5px; font-weight: 500;
+    color: #fff;
+    background: #B8472E;
+    white-space: nowrap;
+    max-width: 78vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    pointer-events: none;
   }
   .net-banner.show{ display: block; }
   .net-banner.info{ background: var(--base-color); }
+
+  /* ---------- スタンプ選択シート ---------- */
+  .stamp-sheet-overlay{
+    position: absolute; inset: 0;
+    z-index: 22;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(20,20,18,0.28);
+  }
+  .stamp-sheet-overlay.show{ display: flex; }
+  .stamp-sheet{
+    width: 100%;
+    max-width: 560px;
+    max-height: 58vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--panel);
+    border-radius: 18px 18px 0 0;
+    padding: 16px 14px 22px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.2);
+    animation: sheetUp 0.2s ease;
+  }
+  @keyframes sheetUp{
+    from{ transform: translateY(16px); opacity: 0; }
+    to{ transform: translateY(0); opacity: 1; }
+  }
+  .stamp-option{
+    padding: 12px 8px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    font-size: 12.5px;
+    font-family: inherit;
+    text-align: center;
+    cursor: pointer;
+  }
+  .stamp-option:active{ transform: scale(0.96); background: var(--panel-2); }
+
+  .stamp-free-row{
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .stamp-free-input{
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+  }
+  .stamp-free-input:focus{ border-color: var(--base-color); }
+  .stamp-free-send{
+    flex-shrink: 0;
+    padding: 0 16px;
+    border: none;
+    border-radius: 10px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .stamp-free-send:active{ transform: scale(0.96); }
+  .stamp-free-send:disabled{ opacity: 0.35; }
+
+  /* ---------- 吹き出し表示エリア ---------- */
+  .stamp-bubble-layer{
+    position: absolute; inset: 0;
+    z-index: 9;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .stamp-bubble{
+    position: absolute;
+    left: 0; bottom: 0;
+    transform: translateX(-50%);
+    max-width: 56vw;
+    background: #fff;
+    border: 1px solid var(--line-strong);
+    border-radius: 14px;
+    padding: 8px 13px;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink);
+    white-space: normal;
+    word-break: break-word;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.16);
+    opacity: 0;
+    pointer-events: none;
+    animation: bubbleIn 0.22s ease forwards, bubbleOut 0.3s ease forwards;
+    animation-delay: 0s, 2.5s;
+  }
+  .stamp-bubble::after{
+    content:"";
+    position: absolute; left: 50%; bottom: -7px;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 7px solid #fff;
+  }
+  .stamp-bubble::before{
+    content:"";
+    position: absolute; left: 50%; bottom: -8.5px;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid var(--line-strong);
+  }
+  @keyframes bubbleIn{
+    from{ opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.92); }
+    to{ opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  }
+  @keyframes bubbleOut{
+    from{ opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    to{ opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.96); }
+  }
   .player-tag .p-name{
     font-size: 10px; color: var(--ink-dim); margin-left: 4px;
     max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -759,9 +917,12 @@
       </div>
     </header>
 
-    <div class="turn-banner" id="turnBanner">
-      <div class="turn-dot" id="turnDot"></div>
-      <div class="turn-text" id="turnText">先手の番</div>
+    <div class="status-stack" id="statusStack">
+      <div class="turn-banner" id="turnBanner">
+        <div class="turn-dot" id="turnDot"></div>
+        <div class="turn-text" id="turnText">先手の番</div>
+      </div>
+      <div class="net-banner" id="netBanner"></div>
     </div>
 
     <div id="canvas-wrap"></div>
@@ -776,6 +937,9 @@
         <div class="player-tag" id="p2Tag">
           <div class="swatch" id="p2Swatch"></div>後手<span class="score" id="p2Score">0</span>
         </div>
+        <button class="stamp-btn" id="stampBtn" title="スタンプを送る" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        </button>
       </div>
       <div class="controls">
         <button class="ctrl-btn ghost" id="undoBtn" title="1手戻る">
@@ -804,9 +968,6 @@
     <!-- 結果を隠した後、再表示するための小さなボタン -->
     <button class="show-result-btn" id="showResultBtn">結果を表示</button>
 
-    <!-- ============== オンライン: 接続状況バナー ============== -->
-    <div class="net-banner" id="netBanner"></div>
-
     <!-- ============== オンライン: 待機オーバーレイ ============== -->
     <div class="overlay" id="waitOverlay">
       <div class="result-card">
@@ -818,6 +979,19 @@
         <button class="ctrl-btn ghost" id="cancelWaitBtn">やめて戻る</button>
       </div>
     </div>
+
+    <!-- ============== オンライン: スタンプ選択パネル ============== -->
+    <div class="stamp-sheet-overlay" id="stampSheetOverlay">
+      <div class="stamp-sheet" id="stampSheet">
+        <div class="stamp-free-row">
+          <input type="text" id="stampFreeInput" class="stamp-free-input" maxlength="20" placeholder="自由にひとこと（20文字まで）">
+          <button type="button" id="stampFreeSendBtn" class="stamp-free-send">送信</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============== オンライン: 吹き出し表示エリア ============== -->
+    <div class="stamp-bubble-layer" id="stampBubbleLayer"></div>
 
     <div class="modal-overlay" id="rulesOverlay">
       <div class="modal">
@@ -884,6 +1058,26 @@
   let p2ColorId = 'blue';
   let gameMode = 'human'; // human: 2人対戦 / cpu: 後手CPU
   let cpuPlayer = 2;      // CPU戦でCPUが担当する手番（2=あなたが先攻 / 1=あなたが後攻）
+
+  /* ============================================================
+     スタンプ文言リスト（オンライン対戦中に送れる定型メッセージ）
+     ★ここを編集すれば、表示される文言を差し替えられます。
+  ============================================================ */
+  const STAMP_LIST = [
+    'いざ勝負！',
+    'よろしく！',
+    'バレたか！',
+    'かかったな！',
+    'はやく！',
+    'いやらしいですね',
+    'やるな！',
+    'ありがとう',
+    'もう一度だ！',
+    '次で最後だ！',
+    'なるほど！',
+    'がんばります！',
+    'ちょっと待って！',
+  ];
 
   /* ============================================================
      スタート画面ロジック
@@ -2384,9 +2578,10 @@
       gameId:0, movesList:[], rematchWaiting:false, sending:false,
     };
     let netRef=null, movesRef=null;
-    let metaCb=null, playersCb=null, movesCb=null, rematchCb=null;
+    let metaCb=null, playersCb=null, movesCb=null, rematchCb=null, stampsCb=null;
     let clientId=null;
     let lastPlayers={};
+    let myName='';
 
     function init(){
       try{
@@ -2426,6 +2621,7 @@
     api.createRoom = async function(code, name){
       if(!db){ alert('オンライン機能を初期化できませんでした。接続情報を確認してください。'); return; }
       api.online=true; api.mySeat='host'; api.roomId=code; api.launched=false;
+      myName = name;
       const turnFirst = Math.random()<0.5 ? 'host' : 'guest';
       netRef = db.ref('rooms/'+code);
       try{
@@ -2459,6 +2655,7 @@
       else seat='spectator';                                                 // 満席 → 観戦
 
       api.online=true; api.mySeat=seat; api.roomId=code; api.launched=false;
+      myName = name;
       netRef = ref;
 
       try{
@@ -2550,6 +2747,16 @@
           startRematchAsHost(next);
         }
       });
+
+      // スタンプ受信: 接続直後に過去分が一気に流れてくるのを防ぐため、
+      // アタッチ直後の一定時間分はミュートして無視する
+      api.stampsReady = false;
+      setTimeout(()=>{ api.stampsReady = true; }, 700);
+      stampsCb = netRef.child('stamps').on('child_added', s=>{
+        const v = s.val();
+        if(!v || !api.stampsReady) return;
+        showStampBubble(v);
+      });
     }
 
     function bindMovesRef(){
@@ -2573,6 +2780,7 @@
       api.movesApplied = 0;
       rebuildFromMoves(api.movesList); // 既存の手があれば一括反映（再接続対応）
       updateTurnBanner();
+      updateStampBtnVisibility();
     }
     function startNewRound(){
       // 再戦: 盤面だけ作り直す（サイズは不変）
@@ -2666,6 +2874,28 @@
       movesRef.push({ x:x, z:z, player:player });
     };
 
+    // ---- スタンプ送信 ----
+    let lastStampAt = 0;
+    api.sendStamp = function(text){
+      if(!api.online || !netRef) return;
+      text = (text == null ? '' : String(text)).trim();
+      if(!text) return;
+      if(text.length > 20) text = text.slice(0, 20); // 表示崩れ防止のための文字数上限
+      const now = Date.now();
+      if(now - lastStampAt < 1200) return; // 連打防止の簡易クールダウン
+      lastStampAt = now;
+      let payload;
+      if(api.mySeat === 'spectator'){
+        payload = { role:'spectator', name: myName || '観戦者', text:text, ts: firebase.database.ServerValue.TIMESTAMP };
+      } else {
+        payload = { role:'player', player: api.mySeatPlayer(), text:text, ts: firebase.database.ServerValue.TIMESTAMP };
+      }
+      // 自分の画面にも同じ経路で表示させる（送受信を同じ仕組みに統一）
+      const ref = netRef.child('stamps').push(payload);
+      // 場所を取り続けないよう、少し経ったら自分で片付ける
+      setTimeout(()=>{ try{ ref.remove(); }catch(e){} }, 8000);
+    };
+
     // ---- 終局・再戦 ----
     api.onGameEnd = function(){
       if(api.mySeat==='host' && netRef){ netRef.child('meta/status').set('finished'); }
@@ -2713,6 +2943,7 @@
     }
     function updateOpponentBanner(){
       if(!api.launched) return;
+      updateStampBtnVisibility();
       if(api.mySeat==='spectator'){ banner('観戦モードです', true); return; }
       if(!api.opponentPresent){
         banner('相手が切断しました。再接続を待っています…', false);
@@ -2720,6 +2951,13 @@
         banner('', false);
         updateTurnBanner();
       }
+    }
+    function updateStampBtnVisibility(){
+      const btn = document.getElementById('stampBtn');
+      if(!btn) return;
+      // 観戦者は相手の接続状況に関係なく常に送れる。プレイヤーは相手がいる時のみ。
+      const visible = api.online && api.launched && (api.mySeat==='spectator' || api.opponentPresent);
+      btn.style.display = visible ? 'flex' : 'none';
     }
     function updateTurnBannerSafe(){ try{ updateTurnBanner(); }catch(e){} }
     function updateTurnBanner(){
@@ -2739,6 +2977,7 @@
           if(metaCb) netRef.child('meta').off('value', metaCb);
           if(playersCb) netRef.child('players').off('value', playersCb);
           if(rematchCb) netRef.child('rematch').off('value', rematchCb);
+          if(stampsCb) netRef.child('stamps').off('child_added', stampsCb);
           if(movesRef && movesCb) movesRef.off('value', movesCb);
           if(api.mySeat==='spectator'){ netRef.child('spectators/'+clientId).remove(); }
           else if(api.mySeat){ netRef.child('players/'+api.mySeat+'/connected').set(false); }
@@ -2748,12 +2987,17 @@
       api.online=false; api.mySeat=null; api.roomId=null; api.meta=null;
       api.launched=false; api.opponentPresent=false; api.movesApplied=0;
       api.gameId=0; api.movesList=[]; netRef=null; movesRef=null;
-      api.sending=false; api.rematchWaiting=false;
+      api.sending=false; api.rematchWaiting=false; stampsCb=null;
       gameMode='human';
       // 隠していたローカル用ボタンを元に戻す
       const undo=document.getElementById('undoBtn'); if(undo) undo.style.display='';
       const reset=document.getElementById('resetBtn'); if(reset) reset.style.display='';
       const changeSetup=document.getElementById('changeSetupBtn'); if(changeSetup) changeSetup.textContent='設定を変える';
+      // スタンプ関連UIも後片付け
+      const stampBtn=document.getElementById('stampBtn'); if(stampBtn) stampBtn.style.display='none';
+      const stampOverlay=document.getElementById('stampSheetOverlay'); if(stampOverlay) stampOverlay.classList.remove('show');
+      const bubbleLayer=document.getElementById('stampBubbleLayer'); if(bubbleLayer) bubbleLayer.innerHTML='';
+      const freeInput=document.getElementById('stampFreeInput'); if(freeInput) freeInput.value='';
     };
 
     init();
@@ -2796,6 +3040,79 @@
     document.getElementById('gameScreen').classList.remove('show');
     document.getElementById('startScreen').style.display='flex';
   });
+
+  /* ============================================================
+     スタンプ機能（オンライン対戦中のみ）
+  ============================================================ */
+  // 選択シートの中身を組み立て（STAMP_LISTを編集すれば自動で反映される）
+  const stampSheet = document.getElementById('stampSheet');
+  STAMP_LIST.forEach(text=>{
+    const btn = document.createElement('button');
+    btn.className = 'stamp-option';
+    btn.type = 'button';
+    btn.textContent = text;
+    btn.addEventListener('click', ()=>{
+      closeStampSheet();
+      NET.sendStamp(text);
+    });
+    stampSheet.appendChild(btn);
+  });
+
+  function openStampSheet(){
+    document.getElementById('stampSheetOverlay').classList.add('show');
+  }
+  function closeStampSheet(){
+    document.getElementById('stampSheetOverlay').classList.remove('show');
+  }
+  document.getElementById('stampBtn').addEventListener('click', openStampSheet);
+  document.getElementById('stampSheetOverlay').addEventListener('click', (e)=>{
+    if(e.target.id === 'stampSheetOverlay') closeStampSheet();
+  });
+
+  // フリーコメント入力欄
+  function sendFreeStamp(){
+    const input = document.getElementById('stampFreeInput');
+    const text = input.value.trim();
+    if(!text) return;
+    closeStampSheet();
+    NET.sendStamp(text);
+    input.value = '';
+  }
+  document.getElementById('stampFreeSendBtn').addEventListener('click', sendFreeStamp);
+  document.getElementById('stampFreeInput').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); sendFreeStamp(); }
+  });
+
+  // 吹き出しを「送信者の名前タグ」の真上に表示し、一定時間で自動的に消す
+  // data: {role:'player', player:1|2, text} または {role:'spectator', name, text}
+  function showStampBubble(data){
+    const layer = document.getElementById('stampBubbleLayer');
+    if(!layer || !data || !data.text) return;
+    const layerRect = layer.getBoundingClientRect();
+
+    let anchorRect, label;
+    if(data.role === 'spectator'){
+      // 観戦者は特定のタグに属さないので、フッター全体の上・中央を基準にする
+      const footer = document.querySelector('.footer-panel');
+      anchorRect = footer ? footer.getBoundingClientRect() : layer.getBoundingClientRect();
+      label = (data.name || '観戦者') + '： ' + data.text;
+    } else {
+      const tag = document.getElementById(data.player===1 ? 'p1Tag' : 'p2Tag');
+      if(!tag) return;
+      anchorRect = tag.getBoundingClientRect();
+      label = data.text;
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'stamp-bubble';
+    bubble.textContent = label;
+    const x = (anchorRect.left + anchorRect.width/2) - layerRect.left;
+    const bottomPx = (layerRect.bottom - anchorRect.top) + 10; // 基準の少し上に表示
+    bubble.style.left = x + 'px';
+    bubble.style.bottom = bottomPx + 'px';
+    layer.appendChild(bubble);
+    setTimeout(()=>{ bubble.remove(); }, 3000); // CSS側の表示時間に合わせて要素を片付ける
+  }
 
 })();
 </script>
