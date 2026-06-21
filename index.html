@@ -540,6 +540,72 @@
     .result-kanji{ font-size: 24px; }
     .show-result-btn{ top: 50px; }
   }
+
+  /* ============================================================
+     オンライン対戦UI
+  ============================================================ */
+  .online-input{
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 15px;
+    font-family: inherit;
+    outline: none;
+  }
+  .online-input:focus{ border-color: var(--base-color); }
+  .online-actions{ margin-top: 14px; }
+  .online-block{ margin: 6px 0; }
+  .online-row{ display: flex; gap: 8px; align-items: stretch; margin-bottom: 8px; }
+  .online-row .online-input{ flex: 1; }
+  .online-mini-btn{
+    width: 46px; border: 1px solid var(--line-strong);
+    border-radius: 10px; background: var(--panel);
+    font-size: 18px; cursor: pointer; color: var(--ink);
+  }
+  .online-mini-btn:active{ background: var(--panel-2); }
+  .ghost-btn{
+    background: var(--panel) !important;
+    color: var(--ink) !important;
+    border: 1px solid var(--line-strong) !important;
+    flex: 0 0 96px;
+  }
+  .online-divider{
+    text-align: center; margin: 16px 0 12px;
+    position: relative; color: var(--ink-dim); font-size: 11px;
+  }
+  .online-divider::before{
+    content: ""; position: absolute; left: 0; top: 50%;
+    width: 100%; height: 1px; background: var(--line);
+  }
+  .online-divider span{
+    background: var(--bg); padding: 0 12px; position: relative;
+  }
+  .wait-title{
+    font-family: 'Zen Old Mincho', serif; font-weight: 600;
+    font-size: 18px; margin-bottom: 16px; color: var(--ink);
+  }
+  .wait-code-label{ font-size: 11px; color: var(--ink-dim); letter-spacing: 0.1em; }
+  .wait-code{
+    font-family: 'Zen Old Mincho', serif; font-weight: 900;
+    font-size: 44px; letter-spacing: 0.18em; margin: 4px 0 16px;
+    color: var(--base-color);
+  }
+  .wait-sub{ font-size: 11.5px; color: var(--ink-dim); margin: 12px 0 16px; }
+  .net-banner{
+    position: absolute; top: 0; left: 0; right: 0; z-index: 40;
+    display: none; padding: 8px 12px; text-align: center;
+    font-size: 12px; font-weight: 500;
+    background: #B8472E; color: #fff;
+  }
+  .net-banner.show{ display: block; }
+  .net-banner.info{ background: var(--base-color); }
+  .player-tag .p-name{
+    font-size: 10px; color: var(--ink-dim); margin-left: 4px;
+    max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
 </style>
 
 <meta name="theme-color" content="#ffffff">
@@ -583,6 +649,7 @@
         <div class="chip-row" id="modeChips">
           <div class="chip" data-mode="human">2人で対戦</div>
           <div class="chip" data-mode="cpu">CPUと対戦</div>
+          <div class="chip" data-mode="online">オンライン対戦</div>
         </div>
       </div>
 
@@ -595,6 +662,35 @@
         <div class="player-setup-row">
           <div class="p-label">後手</div>
           <div class="color-row" id="p2Colors"></div>
+        </div>
+      </div>
+
+      <!-- ============== オンライン対戦パネル ============== -->
+      <div class="setup-section" id="onlinePanel" style="display:none;">
+        <div class="setup-section">
+          <div class="setup-label">あなたの名前 <span class="hint">相手に表示されます</span></div>
+          <input type="text" id="onlineName" class="online-input" maxlength="12" placeholder="例: たろう">
+        </div>
+
+        <div class="online-actions">
+          <div class="online-block">
+            <div class="setup-label">部屋を作る <span class="hint">設定はあなたが決めます</span></div>
+            <div class="online-row">
+              <input type="text" id="createCode" class="online-input" maxlength="8" placeholder="部屋番号">
+              <button class="online-mini-btn" id="genCodeBtn" title="番号を作り直す">↻</button>
+            </div>
+            <button class="start-btn" id="createRoomBtn">この部屋を作る</button>
+          </div>
+
+          <div class="online-divider"><span>または</span></div>
+
+          <div class="online-block">
+            <div class="setup-label">部屋に入る <span class="hint">友達がくれた番号を入力</span></div>
+            <div class="online-row">
+              <input type="text" id="joinCode" class="online-input" maxlength="8" placeholder="部屋番号を入力">
+              <button class="start-btn ghost-btn" id="joinRoomBtn">入る</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -668,6 +764,21 @@
     <!-- 結果を隠した後、再表示するための小さなボタン -->
     <button class="show-result-btn" id="showResultBtn">結果を表示</button>
 
+    <!-- ============== オンライン: 接続状況バナー ============== -->
+    <div class="net-banner" id="netBanner"></div>
+
+    <!-- ============== オンライン: 待機オーバーレイ ============== -->
+    <div class="overlay" id="waitOverlay">
+      <div class="result-card">
+        <div class="wait-title" id="waitTitle">対戦相手を待っています…</div>
+        <div class="wait-code-label">部屋番号</div>
+        <div class="wait-code" id="waitCode">----</div>
+        <button class="ctrl-btn" id="copyCodeBtn">番号をコピー</button>
+        <div class="wait-sub" id="waitSub">この番号を相手に伝えてください</div>
+        <button class="ctrl-btn ghost" id="cancelWaitBtn">やめて戻る</button>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="rulesOverlay">
       <div class="modal">
         <h2>遊び方</h2>
@@ -687,6 +798,28 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-database-compat.js"></script>
+<script>
+  /* ============================================================
+     Firebase 接続情報
+     ★★ databaseURL は必ずあなたの Realtime Database の URL に
+        合わせてください。Firebaseコンソールの
+        「Realtime Database」画面の上部に表示されている
+        https://....firebasedatabase.app （または .firebaseio.com）
+        がそれです。下の値が違っているとオンライン対戦が動きません。
+  ============================================================ */
+  window.__FIREBASE_CONFIG__ = {
+    apiKey: "AIzaSyBtC8za8k1UBL58zLVpstjz2zxvpI-YBFk",
+    authDomain: "rittai-nmoku.firebaseapp.com",
+    databaseURL: "https://rittai-nmoku-default-rtdb.asia-southeast1.firebasedatabase.app", // あなたのRealtime DatabaseのURL
+    projectId: "rittai-nmoku",
+    storageBucket: "rittai-nmoku.firebasestorage.app",
+    messagingSenderId: "997658040554",
+    appId: "1:997658040554:web:3ed344cadac60042eb1f93",
+    measurementId: "G-7QEHGEQSL9"
+  };
+</script>
 <script>
 (function(){
   "use strict";
@@ -769,8 +902,18 @@
 
   setupChipGroup(sizeChips, 'size', SIZE, (v)=>{ SIZE = v; refreshWinChipConstraints(); });
   setupChipGroup(winChips, 'win', WIN_LEN, (v)=>{ WIN_LEN = v; });
-  setupChipGroup(modeChips, 'mode', gameMode, (v)=>{ gameMode = v; });
+  setupChipGroup(modeChips, 'mode', gameMode, (v)=>{ gameMode = v; updateModeUI(); });
   refreshColorUI();
+
+  // 対戦形式に応じて、通常スタートボタン／オンラインパネルの表示を切り替える
+  function updateModeUI(){
+    const isOnline = (gameMode === 'online');
+    document.getElementById('onlinePanel').style.display = isOnline ? 'block' : 'none';
+    document.getElementById('startBtn').style.display = isOnline ? 'none' : 'block';
+    if(isOnline && !document.getElementById('createCode').value){
+      document.getElementById('createCode').value = NET.genCode();
+    }
+  }
 
   // 勝利条件は盤面の一辺を超えられない（超えると絶対に揃わないため）
   function refreshWinChipConstraints(){
@@ -1788,6 +1931,7 @@
     turnText.textContent = (currentPlayer===1 ? '先手':'後手' + (gameMode==='cpu' ? 'CPU' : '')) + 'の番';
     p1Tag.classList.toggle('active', currentPlayer===1);
     p2Tag.classList.toggle('active', currentPlayer===2);
+    if(NET.online) NET.updateTurnBanner();
   }
 
   function showResult(winner){
@@ -1938,6 +2082,13 @@
 
   function onCapTapped(x, z){
     if(gameMode === 'cpu' && currentPlayer === 2) return;
+    if(NET.online){
+      // オンライン: 観戦者・相手の番・相手不在・送信中のときは操作不可
+      if(NET.mySeat === 'spectator') return;
+      if(!NET.opponentPresent) return;
+      if(NET.sending) return;
+      if(currentPlayer !== NET.mySeatPlayer()) return;
+    }
     if(gameOver) return;
     if(anyFalling || pendingEval) return; // 落下中・着地後の判定待ち中は新しい入力を受け付けない
     if(heights[x][z] >= SIZE){
@@ -1946,7 +2097,14 @@
     }
     if(selectedColumn && selectedColumn.x===x && selectedColumn.z===z){
       // 確定
-      confirmDrop(x,z);
+      if(NET.online){
+        NET.sendMove(x, z); // オンラインはDBに送信。盤面反映はリスナー経由で全員一斉に行う
+        selectedColumn = null;
+        confirmHint.classList.remove('show');
+        refreshPlacementGuides();
+      } else {
+        confirmDrop(x,z);
+      }
     } else {
       selectedColumn = {x,z};
       confirmHint.classList.add('show');
@@ -1985,16 +2143,19 @@
       p2Score.textContent = scoreState[2];
       drawWinLine(winInfo.line, winInfo.player);
       setTimeout(()=> showResult(winInfo.player), 500);
+      if(NET.online) NET.onGameEnd();
       return;
     }
     if(isBoardFull()){
       gameOver = true;
       setTimeout(()=> showResult('draw'), 500);
+      if(NET.online) NET.onGameEnd();
       return;
     }
     currentPlayer = evalPlayer===1 ? 2 : 1;
     updateTurnUI();
     scheduleCpuTurn();
+    if(NET.online){ NET.updateTurnBanner(); NET.tryAdvanceMoves(); }
   }
 
   function resetGame(){
@@ -2095,7 +2256,9 @@
   document.getElementById('undoBtn').addEventListener('click', undoMove);
   document.getElementById('viewResetBtn').addEventListener('click', resetCameraView);
   document.getElementById('transparencyBtn').addEventListener('click', toggleTransparency);
-  document.getElementById('playAgainBtn').addEventListener('click', resetGame);
+  document.getElementById('playAgainBtn').addEventListener('click', ()=>{
+    if(NET.online){ NET.requestRematch(); } else { resetGame(); }
+  });
   document.getElementById('hideResultBtn').addEventListener('click', ()=>{
     resultOverlay.classList.remove('show');
     document.getElementById('showResultBtn').classList.add('show');
@@ -2105,11 +2268,13 @@
     document.getElementById('showResultBtn').classList.remove('show');
   });
   document.getElementById('changeSetupBtn').addEventListener('click', ()=>{
+    if(NET.online) NET.leaveRoom();
     resultOverlay.classList.remove('show');
     document.getElementById('gameScreen').classList.remove('show');
     document.getElementById('startScreen').style.display = 'flex';
   });
   document.getElementById('backBtn').addEventListener('click', ()=>{
+    if(NET.online) NET.leaveRoom();
     document.getElementById('gameScreen').classList.remove('show');
     document.getElementById('startScreen').style.display = 'flex';
   });
@@ -2121,6 +2286,436 @@
   });
   document.getElementById('rulesOverlay').addEventListener('click', (e)=>{
     if(e.target.id === 'rulesOverlay') e.currentTarget.classList.remove('show');
+  });
+
+  /* ============================================================
+     オンライン対戦モジュール (Firebase Realtime Database)
+     既存のローカル/CPU対戦には一切影響しません。
+     盤面の同期方針:
+       - 確定した手だけを moves リストに push する
+       - moves リストの変化を全クライアントが監視し、同じ順序で盤面に反映する
+       - 自分の手も「リスナー経由」で反映するので、両者の状態が必ず一致する
+       - 再接続・観戦は moves リスト全体から盤面を一括再構築する
+  ============================================================ */
+  const NET = (function(){
+    let app=null, db=null;
+    const api = {
+      online:false, mySeat:null, roomId:null, meta:null,
+      opponentPresent:false, movesApplied:0, launched:false,
+      gameId:0, movesList:[], rematchWaiting:false, sending:false,
+    };
+    let netRef=null, movesRef=null;
+    let metaCb=null, playersCb=null, movesCb=null, rematchCb=null;
+    let clientId=null;
+    let lastPlayers={};
+
+    function init(){
+      try{
+        app = firebase.initializeApp(window.__FIREBASE_CONFIG__);
+        db = firebase.database();
+      }catch(e){ console.error('Firebase init failed', e); }
+      clientId = getClientId();
+    }
+    function getClientId(){
+      let id=null;
+      try{ id = localStorage.getItem('rittai_clientId'); }catch(e){}
+      if(!id){
+        id = 'c_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+        try{ localStorage.setItem('rittai_clientId', id); }catch(e){}
+      }
+      return id;
+    }
+    function genCode(){
+      return String(Math.floor(1000 + Math.random()*9000)); // 4桁の部屋番号
+    }
+    api.genCode = genCode;
+    api.mySeatPlayer = function(){
+      if(!api.meta) return null;
+      return (api.meta.turnFirst === api.mySeat) ? 1 : 2;
+    };
+    function opponentSeat(){ return api.mySeat==='host' ? 'guest' : 'host'; }
+
+    function banner(msg, info){
+      const b = document.getElementById('netBanner');
+      if(!msg){ b.classList.remove('show'); return; }
+      b.textContent = msg;
+      b.classList.toggle('info', !!info);
+      b.classList.add('show');
+    }
+
+    // ---- 部屋を作る（ホスト） ----
+    api.createRoom = async function(code, name){
+      if(!db){ alert('オンライン機能を初期化できませんでした。接続情報を確認してください。'); return; }
+      api.online=true; api.mySeat='host'; api.roomId=code; api.launched=false;
+      const turnFirst = Math.random()<0.5 ? 'host' : 'guest';
+      netRef = db.ref('rooms/'+code);
+      try{
+        await netRef.set({
+          meta:{ size:SIZE, winLen:WIN_LEN, p1Color:p1ColorId, p2Color:p2ColorId,
+                 hostId:clientId, status:'waiting', gameId:1, turnFirst:turnFirst,
+                 createdAt: firebase.database.ServerValue.TIMESTAMP },
+          players:{ host:{ id:clientId, name:name, connected:true } }
+        });
+      }catch(e){ console.error(e); alert('部屋の作成に失敗しました。'); api.online=false; return; }
+      setupPresence('host', name);
+      attachListeners();
+      enterGameScreenForOnline();
+      showWaiting(code);
+    };
+
+    // ---- 部屋に入る（ゲスト or 再接続 or 観戦） ----
+    api.joinRoom = async function(code, name){
+      if(!db){ alert('オンライン機能を初期化できませんでした。接続情報を確認してください。'); return; }
+      const ref = db.ref('rooms/'+code);
+      let snap;
+      try{ snap = await ref.once('value'); }
+      catch(e){ console.error(e); alert('接続に失敗しました。'); return; }
+      if(!snap.exists()){ alert('その部屋番号は見つかりませんでした。'); return; }
+      const data = snap.val();
+      const players = data.players || {};
+      let seat;
+      if(players.guest && players.guest.id===clientId) seat='guest';        // ゲストとして再接続
+      else if(players.host && players.host.id===clientId) seat='host';       // ホストとして再接続
+      else if(!players.guest) seat='guest';                                  // 空席 → ゲスト
+      else seat='spectator';                                                 // 満席 → 観戦
+
+      api.online=true; api.mySeat=seat; api.roomId=code; api.launched=false;
+      netRef = ref;
+
+      try{
+        if(seat==='guest'){
+          await netRef.child('players/guest').set({ id:clientId, name:name, connected:true });
+        }else if(seat==='host'){
+          await netRef.child('players/host/connected').set(true);
+          await netRef.child('players/host/name').set(name);
+        }else{ // spectator
+          await netRef.child('spectators/'+clientId).set({ name:name });
+        }
+      }catch(e){ console.error(e); }
+      setupPresence(seat, name);
+      attachListeners();
+      enterGameScreenForOnline();
+      banner('接続中…', true);
+    };
+
+    function setupPresence(seat, name){
+      if(seat==='spectator'){
+        netRef.child('spectators/'+clientId).onDisconnect().remove();
+        return;
+      }
+      const connRef = netRef.child('players/'+seat+'/connected');
+      connRef.onDisconnect().set(false);
+      // 再接続時に connected を true へ戻す（Firebaseの接続状態を監視）
+      db.ref('.info/connected').on('value', s=>{
+        if(s.val()===true && api.online && (api.mySeat===seat)){
+          connRef.set(true);
+          connRef.onDisconnect().set(false);
+        }
+      });
+    }
+
+    function enterGameScreenForOnline(){
+      // オンライン時はローカル専用の「戻る/リセット」を隠し、結果の「設定変更」を「退室」に
+      document.getElementById('startScreen').style.display='none';
+      document.getElementById('gameScreen').classList.add('show');
+      const undo=document.getElementById('undoBtn'); if(undo) undo.style.display='none';
+      const reset=document.getElementById('resetBtn'); if(reset) reset.style.display='none';
+      const playAgain=document.getElementById('playAgainBtn'); if(playAgain) playAgain.textContent='もう一回';
+      const changeSetup=document.getElementById('changeSetupBtn'); if(changeSetup) changeSetup.textContent='退室する';
+    }
+
+    function showWaiting(code){
+      document.getElementById('waitCode').textContent = code;
+      document.getElementById('waitTitle').textContent = '対戦相手を待っています…';
+      document.getElementById('waitSub').textContent = 'この番号を相手に伝えてください';
+      document.getElementById('waitOverlay').classList.add('show');
+    }
+    function hideWaiting(){ document.getElementById('waitOverlay').classList.remove('show'); }
+
+    function attachListeners(){
+      metaCb = netRef.child('meta').on('value', s=>{
+        const m = s.val(); if(!m) return; api.meta=m;
+        // ホストの設定を全員に反映
+        SIZE = m.size; WIN_LEN = m.winLen; p1ColorId = m.p1Color; p2ColorId = m.p2Color;
+        // gameId変化（再戦）→ moves購読を貼り直し、盤面リセット
+        if(m.gameId !== api.gameId){
+          api.gameId = m.gameId;
+          bindMovesRef();
+          if(api.launched){ startNewRound(); }
+        }
+        // 状態が playing になったら開始
+        if(m.status==='playing' && !api.launched){ startOnlineGame(); }
+        updateNames(lastPlayers);
+      });
+
+      playersCb = netRef.child('players').on('value', s=>{
+        const p = s.val() || {};
+        lastPlayers = p;
+        updateNames(p);
+        const opp = p[opponentSeat()];
+        api.opponentPresent = !!(opp && opp.connected);
+        // ホストは両者そろったら playing に
+        if(api.mySeat==='host' && p.host && p.host.connected && p.guest && p.guest.connected
+           && api.meta && api.meta.status==='waiting'){
+          netRef.child('meta/status').set('playing');
+        }
+        updateOpponentBanner();
+        updateTurnBannerSafe();
+      });
+
+      rematchCb = netRef.child('rematch').on('value', s=>{
+        const r = s.val() || {};
+        const next = api.gameId + 1;
+        if(api.mySeat==='host' && r.host===next && r.guest===next){
+          // 両者合意 → 新ゲーム開始（ホストが進行）
+          startRematchAsHost(next);
+        }
+      });
+    }
+
+    function bindMovesRef(){
+      if(movesRef && movesCb){ movesRef.off('value', movesCb); }
+      movesRef = netRef.child('games/'+api.gameId+'/moves');
+      movesCb = movesRef.on('value', s=>{
+        const v = s.val() || {};
+        api.movesList = Object.keys(v).sort().map(k=>v[k]);
+        api.tryAdvanceMoves();
+      });
+    }
+
+    // ---- ゲーム開始（両者そろってから） ----
+    function startOnlineGame(){
+      api.launched = true;
+      gameMode = 'online';
+      hideWaiting();
+      banner('', false);
+      launchGame();          // 盤面構築（SIZEはmetaで反映済み）
+      api.sending = false;
+      api.movesApplied = 0;
+      rebuildFromMoves(api.movesList); // 既存の手があれば一括反映（再接続対応）
+      updateTurnBanner();
+    }
+    function startNewRound(){
+      // 再戦: 盤面だけ作り直す（サイズは不変）
+      gameOver=false;
+      resultOverlay.classList.remove('show');
+      document.getElementById('showResultBtn').classList.remove('show');
+      initBoard();
+      ALL_LINES = generateLines();
+      rebuildBoardVisuals();
+      api.movesApplied = 0;
+      api.rematchWaiting = false;
+      api.sending = false;
+      updateTurnUI();
+      updateTurnBanner();
+    }
+
+    // ---- moves反映 ----
+    api.tryAdvanceMoves = function(){
+      if(!api.online || !api.launched) return;
+      const list = api.movesList;
+      if(list.length === api.movesApplied) return;
+      if(list.length < api.movesApplied){ rebuildFromMoves(list); return; }
+      // 2手以上遅れている（再接続/観戦の追いつき）→ 一括再構築
+      if(list.length - api.movesApplied > 1){ rebuildFromMoves(list); return; }
+      // 1手だけ進む → アニメーションで反映（盤面が静止しているときのみ）
+      if(anyFalling || pendingEval) return; // 着地待ち中。evaluateAfterLandingが再度呼ぶ
+      const mv = list[api.movesApplied];
+      currentPlayer = mv.player;
+      animateNetMove(mv.x, mv.z);
+      api.movesApplied++;
+      api.sending = false;
+    };
+
+    // confirmDropの中核（手番ガードなし）。dropPieceはcurrentPlayerを使う
+    function animateNetMove(x,z){
+      const result = dropPiece(x,z);
+      if(!result) return;
+      spawnPiece(result.x, result.y, result.z, result.player);
+      setLastMoveHighlight(result);
+      selectedColumn=null;
+      document.getElementById('confirmHint').classList.remove('show');
+      refreshPlacementGuides();
+      pendingEval = { player: result.player };
+    }
+
+    // moves全体から盤面を一括再構築（アニメなし）
+    function rebuildFromMoves(list){
+      pendingEval=null; gameOver=false;
+      initBoard();
+      ALL_LINES = generateLines();
+      rebuildBoardVisuals();
+      for(const mv of list){
+        const y = heights[mv.x][mv.z];
+        if(y>=SIZE) continue;
+        board[mv.x][mv.z][y] = mv.player;
+        heights[mv.x][mv.z]++;
+        moveHistory.push({x:mv.x,y:y,z:mv.z,player:mv.player});
+        const mesh = spawnPiece(mv.x,y,mv.z,mv.player);
+        mesh.position.y = mesh.userData.targetY;
+        mesh.userData.falling = false;
+        updateShadow(mv.x, mv.z);
+      }
+      api.sending = false;
+      api.movesApplied = list.length;
+      // 手番・終局判定
+      const win = checkWinner();
+      if(win){
+        gameOver=true;
+        drawWinLine(win.line, win.player);
+        currentPlayer = win.player;
+        showResult(win.player);
+      }else if(isBoardFull()){
+        gameOver=true; showResult('draw');
+      }else{
+        currentPlayer = (list.length % 2 === 0) ? 1 : 2;
+        if(lastMove){} // noop
+        const prev = list.length ? list[list.length-1] : null;
+        if(prev) setLastMoveHighlight({x:prev.x, y:heights[prev.x][prev.z]-1, z:prev.z, player:prev.player});
+      }
+      updateTurnUI();
+      updateTurnBanner();
+    }
+
+    // ---- 手を送る ----
+    api.sendMove = function(x,z){
+      if(!movesRef) return;
+      if(api.sending) return;
+      if(heights[x][z] >= SIZE) return;
+      const player = api.mySeatPlayer();
+      api.sending = true;
+      movesRef.push({ x:x, z:z, player:player });
+    };
+
+    // ---- 終局・再戦 ----
+    api.onGameEnd = function(){
+      if(api.mySeat==='host' && netRef){ netRef.child('meta/status').set('finished'); }
+    };
+    api.requestRematch = function(){
+      if(api.mySeat==='spectator'){ return; }
+      const next = api.gameId + 1;
+      api.rematchWaiting = true;
+      netRef.child('rematch/'+api.mySeat).set(next);
+      const sub = document.getElementById('resultSub');
+      if(sub) sub.textContent = '相手の「もう一回」を待っています…';
+    };
+    function startRematchAsHost(nextId){
+      const turnFirst = Math.random()<0.5 ? 'host':'guest';
+      // 新しいgameIdへ。moves空、rematchクリア、turnFirst再抽選、status=playing
+      netRef.update({
+        'meta/gameId': nextId,
+        'meta/turnFirst': turnFirst,
+        'meta/status': 'playing',
+        'rematch': null,
+        ['games/'+nextId+'/moves']: null
+      });
+    }
+
+    // ---- 名前・バナー表示 ----
+    function nameForPlayer(p, players){
+      if(!api.meta) return p===1?'先手':'後手';
+      const hostIsP1 = (api.meta.turnFirst==='host');
+      const seat = (p===1) ? (hostIsP1?'host':'guest') : (hostIsP1?'guest':'host');
+      const info = players && players[seat];
+      return (info && info.name) ? info.name : (p===1?'先手':'後手');
+    }
+    function updateNames(players){
+      ensureNameSpan('p1Tag'); ensureNameSpan('p2Tag');
+      const n1 = nameForPlayer(1, players), n2 = nameForPlayer(2, players);
+      const me = api.mySeatPlayer();
+      document.querySelector('#p1Tag .p-name').textContent = n1 + (me===1?'（あなた）':'');
+      document.querySelector('#p2Tag .p-name').textContent = n2 + (me===2?'（あなた）':'');
+    }
+    function ensureNameSpan(tagId){
+      const tag = document.getElementById(tagId);
+      if(tag && !tag.querySelector('.p-name')){
+        const sp = document.createElement('span'); sp.className='p-name'; tag.appendChild(sp);
+      }
+    }
+    function updateOpponentBanner(){
+      if(!api.launched) return;
+      if(api.mySeat==='spectator'){ banner('観戦モードです', true); return; }
+      if(!api.opponentPresent){
+        banner('相手が切断しました。再接続を待っています…', false);
+      }else{
+        banner('', false);
+        updateTurnBanner();
+      }
+    }
+    function updateTurnBannerSafe(){ try{ updateTurnBanner(); }catch(e){} }
+    function updateTurnBanner(){
+      if(!api.online || !api.launched) return;
+      if(api.mySeat==='spectator') return;
+      if(!api.opponentPresent) return;
+      if(gameOver){ banner('', false); return; }
+      const mine = (currentPlayer === api.mySeatPlayer());
+      banner(mine ? 'あなたの番です' : '相手の番です', true);
+    }
+    api.updateTurnBanner = updateTurnBanner;
+
+    // ---- 退室 ----
+    api.leaveRoom = function(){
+      try{
+        if(netRef){
+          if(metaCb) netRef.child('meta').off('value', metaCb);
+          if(playersCb) netRef.child('players').off('value', playersCb);
+          if(rematchCb) netRef.child('rematch').off('value', rematchCb);
+          if(movesRef && movesCb) movesRef.off('value', movesCb);
+          if(api.mySeat==='spectator'){ netRef.child('spectators/'+clientId).remove(); }
+          else if(api.mySeat){ netRef.child('players/'+api.mySeat+'/connected').set(false); }
+        }
+      }catch(e){ console.error(e); }
+      banner('', false);
+      api.online=false; api.mySeat=null; api.roomId=null; api.meta=null;
+      api.launched=false; api.opponentPresent=false; api.movesApplied=0;
+      api.gameId=0; api.movesList=[]; netRef=null; movesRef=null;
+      api.sending=false; api.rematchWaiting=false;
+      gameMode='human';
+      // 隠していたローカル用ボタンを元に戻す
+      const undo=document.getElementById('undoBtn'); if(undo) undo.style.display='';
+      const reset=document.getElementById('resetBtn'); if(reset) reset.style.display='';
+      const changeSetup=document.getElementById('changeSetupBtn'); if(changeSetup) changeSetup.textContent='設定を変える';
+    };
+
+    init();
+    return api;
+  })();
+
+  // ---- オンラインUIのボタン結線 ----
+  function onlineNameValue(){
+    const v = (document.getElementById('onlineName').value || '').trim();
+    return v || 'プレイヤー';
+  }
+  document.getElementById('genCodeBtn').addEventListener('click', ()=>{
+    document.getElementById('createCode').value = NET.genCode();
+  });
+  document.getElementById('createRoomBtn').addEventListener('click', ()=>{
+    const code = (document.getElementById('createCode').value||'').trim();
+    if(!code){ alert('部屋番号を入力してください。'); return; }
+    NET.createRoom(code, onlineNameValue());
+  });
+  document.getElementById('joinRoomBtn').addEventListener('click', ()=>{
+    const code = (document.getElementById('joinCode').value||'').trim();
+    if(!code){ alert('入りたい部屋番号を入力してください。'); return; }
+    NET.joinRoom(code, onlineNameValue());
+  });
+  document.getElementById('copyCodeBtn').addEventListener('click', ()=>{
+    const code = document.getElementById('waitCode').textContent;
+    const btn = document.getElementById('copyCodeBtn');
+    const done = ()=>{ btn.textContent='コピーしました'; setTimeout(()=>{ btn.textContent='番号をコピー'; },1500); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(code).then(done).catch(()=>{ fallbackCopy(code); done(); });
+    }else{ fallbackCopy(code); done(); }
+  });
+  function fallbackCopy(text){
+    const t=document.createElement('textarea'); t.value=text; document.body.appendChild(t);
+    t.select(); try{ document.execCommand('copy'); }catch(e){} document.body.removeChild(t);
+  }
+  document.getElementById('cancelWaitBtn').addEventListener('click', ()=>{
+    NET.leaveRoom();
+    document.getElementById('waitOverlay').classList.remove('show');
+    document.getElementById('gameScreen').classList.remove('show');
+    document.getElementById('startScreen').style.display='flex';
   });
 
 })();
