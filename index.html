@@ -274,11 +274,36 @@
   #canvas-wrap canvas{
     display:block;
     width: 100%; height: 100%;
-    cursor: grab;
+    cursor: none; /* カスタムカーソルを使うため非表示 */
     touch-action: none;
     overscroll-behavior: none;
   }
-  #canvas-wrap canvas:active{ cursor: grabbing; }
+  #canvas-wrap canvas:active{ cursor: none; }
+
+  /* カスタムカーソルドット */
+  #cursor-dot{
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: rgba(20,20,20,0.80);
+    border: 2px solid rgba(255,255,255,0.80);
+    box-shadow: 0 0 3px rgba(0,0,0,0.5);
+    transform: translate(-50%,-50%);
+    display: none;
+    transition: width 0.12s ease, height 0.12s ease,
+                background 0.12s ease, border-color 0.12s ease,
+                box-shadow 0.12s ease;
+  }
+  /* 置ける場所（キャップ上）: 中抜きリング＋金色グロー */
+  #cursor-dot.on-cap{
+    width: 26px; height: 26px;
+    background: transparent;
+    border: 2.5px solid rgba(245,215,0,0.95);
+    box-shadow: 0 0 8px 2px rgba(245,215,0,0.55),
+                inset 0 0 4px rgba(245,215,0,0.2);
+  }
 
   /* 手番表示: ヘッダー直下、最小限のチップ表示 */
   .status-stack{
@@ -847,6 +872,12 @@
             <div class="chip" data-cputurn="first">あなたが先攻</div>
             <div class="chip" data-cputurn="second">あなたが後攻</div>
           </div>
+          <div class="setup-label" style="margin-top:14px;">CPUの強さ</div>
+          <div class="chip-row" id="cpuStrengthChips">
+            <div class="chip" data-strength="easy">弱</div>
+            <div class="chip" data-strength="normal">普通</div>
+            <div class="chip" data-strength="hard">強</div>
+          </div>
         </div>
       </div>
 
@@ -1044,7 +1075,7 @@
   const COLOR_PRESETS = [
     {id:'red',    label:'赤', hex:0xE2483D},
     {id:'blue',   label:'青', hex:0x2F6FE0},
-    {id:'yellow', label:'黄', hex:0xE8B23D},
+    {id:'yellow', label:'黄', hex:0xF5D700},
     {id:'green',  label:'緑', hex:0x3FA34D},
     {id:'purple', label:'紫', hex:0x8B4FD1},
     {id:'orange', label:'橙', hex:0xE07A2F},
@@ -1058,6 +1089,7 @@
   let p2ColorId = 'blue';
   let gameMode = 'human'; // human: 2人対戦 / cpu: 後手CPU
   let cpuPlayer = 2;      // CPU戦でCPUが担当する手番（2=あなたが先攻 / 1=あなたが後攻）
+  let cpuStrength = 'normal'; // easy: ランダム / normal: 勝ち・ブロック+中央重み / hard: 2手先読み
 
   /* ============================================================
      スタンプ文言リスト（オンライン対戦中に送れる定型メッセージ）
@@ -1145,6 +1177,9 @@
   setupChipGroup(modeChips, 'mode', gameMode, (v)=>{ gameMode = v; updateModeUI(); });
   setupChipGroup(document.getElementById('cpuTurnChips'), 'cputurn', 'first', (v)=>{
     cpuPlayer = (v === 'first') ? 2 : 1; // あなたが先攻ならCPUは後手(2)、後攻ならCPUは先手(1)
+  });
+  setupChipGroup(document.getElementById('cpuStrengthChips'), 'strength', 'normal', (v)=>{
+    cpuStrength = v;
   });
   refreshColorUI();
 
@@ -1381,8 +1416,23 @@
 
     window.addEventListener('resize', onResize);
     attachInteractions();
+    initCursorDot();
     animate();
     tickPulses();
+  }
+
+  function initCursorDot(){
+    if(document.getElementById('cursor-dot')) return; // 二重生成防止
+    const dot = document.createElement('div');
+    dot.id = 'cursor-dot';
+    document.body.appendChild(dot);
+    const dom = renderer.domElement;
+    dom.addEventListener('mouseenter', ()=>{ dot.style.display = 'block'; });
+    dom.addEventListener('mouseleave', ()=>{ dot.style.display = 'none'; });
+    window.addEventListener('mousemove', (e)=>{
+      dot.style.left = e.clientX + 'px';
+      dot.style.top  = e.clientY  + 'px';
+    });
   }
 
   function clearGroup(g){
@@ -1433,7 +1483,7 @@
     // 盤面全体が画面に収まる初期カメラ距離を、画面のアスペクト比を考慮して計算
     initialDist = computeFitDistance();
     initialRotY = -0.55;
-    initialRotX = 0.62; // やや見下ろし気味にして盤全体を把握しやすく
+    initialRotX = 0.52; // 土台まで画面に収まる俯角
     dist = targetDist = initialDist;
     rotY = initialRotY;
     rotX = initialRotX;
@@ -1443,12 +1493,15 @@
 
   // 盤面（柱とキャップ含む）が画面に収まるためのカメラ距離を計算
   function computeFitDistance(){
-    const horizExtent = (SIZE-1)*CELL/2 + CELL*0.6;          // 水平方向の半径
+    const ballRadius = CELL*0.36;
+    const plateThickness = ballRadius * 2.2; // 土台の厚み（buildBasePlateと同じ計算）
+    const topHalf = (SIZE*CELL + CELL*0.6) / 2;
+    const bottomHalf = topHalf + plateThickness * 0.577; // 底面の張り出し
+    const horizExtent = Math.max((SIZE-1)*CELL/2 + CELL*0.6, bottomHalf); // 土台底面も含む
     const topY = (SIZE-1)*CELL_Y - BOARD_OFFSET_Y + CELL_Y*0.66; // キャップ上端
-    const botY = -BOARD_OFFSET_Y - CELL_Y;                       // 柱下端・土台
+    const botY = -BOARD_OFFSET_Y - CELL_Y/2 - plateThickness;    // 土台底面まで含む
     const focusY = (topY + botY)/2;
-    const vertExtent = (topY - botY)/2; // 注視点中心からの縦半径
-    // 注視点を中心とした包含球の半径
+    const vertExtent = (topY - botY)/2;
     const radius = Math.sqrt(horizExtent*horizExtent + vertExtent*vertExtent + horizExtent*horizExtent*0.5);
 
     const fovV = 42 * Math.PI/180;
@@ -1456,21 +1509,21 @@
     const distV = radius / Math.tan(fovV/2);
     const fovH = 2 * Math.atan(Math.tan(fovV/2) * aspect);
     const distH = radius / Math.tan(fovH/2);
-    return Math.max(distV, distH) * 1.12;
+    return Math.max(distV, distH) * 1.28; // 余白を十分に確保
   }
 
-  const PILLAR_RADIUS_RATIO = 0.13; // セルに対する柱の太さ比率（太く）
+  const PILLAR_RADIUS_RATIO = 0.117; // セルに対する柱の太さ比率
   const CAP_RADIUS_RATIO = 0.30;
 
   // 輪郭線の太さ（スケール倍率）。玉と土台の中間に統一
   const OUTLINE_PIECE = 1.07; // 玉・コーン・矢印など主要オブジェクト（細めに調整）
   const OUTLINE_PILLAR = 1.045; // 柱は曲面のため細めに
-  const NEUTRAL_DISK_COLOR = 0xCFCDC5; // 線のみモード: キャップ底面ディスクの未選択時の中立色
-  const CAP_IDLE_OPACITY = 0.45; // キャップ円盤の未選択時の不透明度（今までより透過させる）
+  const NEUTRAL_DISK_COLOR = 0xB89058; // キャップ未選択時のブロンズ色
+  const CAP_IDLE_OPACITY = 0.88; // ボタン感を出すため不透明に
 
   function buildPillars(){
-    // 柱は単色のシンプルな円柱（縞模様は廃止）
-    const pillarColor = 0xCEccC4; // 落ち着いた単色グレー
+    // 柱: ブロンズ系の有機的な円柱（上端を少し細く絞ってテーパーをつける）
+    const pillarColor = 0xA07848; // ウォームブロンズ
     const pillarR = CELL*PILLAR_RADIUS_RATIO;
     const wireR = CELL*0.018; // 線のみモード: ごく細いワイヤー半径
     const wireGap = CELL_Y*0.16; // 段の境目で途切れさせるギャップ
@@ -1480,12 +1533,12 @@
       for(let z=0;z<SIZE;z++){
         const wx = x*CELL - BOARD_OFFSET;
         const wz = z*CELL - BOARD_OFFSET;
-        // 1本の単色の柱（棒ありモードで表示）
+        // 上端を少し絞ったテーパー柱（有機的な高級感）
         const topY = gridToWorld(x,SIZE-1,z).y;
         const fullHeight = (topY - (gridToWorld(x,0,z).y)) + CELL_Y;
         const pillarCenterY = (gridToWorld(x,0,z).y + topY)/2;
-        const segGeo = new THREE.CylinderGeometry(pillarR, pillarR, fullHeight, 20, 1, true);
-        const segMat = new THREE.MeshStandardMaterial({color:pillarColor, roughness:0.55, metalness:0.06, side:THREE.DoubleSide});
+        const segGeo = new THREE.CylinderGeometry(pillarR*0.82, pillarR, fullHeight, 32, 1, true);
+        const segMat = new THREE.MeshStandardMaterial({color:pillarColor, roughness:0.58, metalness:0.18, side:THREE.DoubleSide});
         pillarSegMaterials.push(segMat);
         const seg = new THREE.Mesh(segGeo, segMat);
         seg.position.set(wx, pillarCenterY, wz);
@@ -1505,7 +1558,7 @@
         pillarGroup.add(outline);
 
         // 線のみモード用: 段の境目で少し途切れるごく細いワイヤー柱
-        const wireMat = new THREE.MeshBasicMaterial({color:0x9a9890, transparent:true, opacity:0.55});
+        const wireMat = new THREE.MeshBasicMaterial({color:0x5A3A18, transparent:true, opacity:0.65});
         for(let y=0;y<SIZE;y++){
           const segCenterY = y*CELL_Y - BOARD_OFFSET_Y;
           const wireH = CELL_Y - wireGap;
@@ -1518,25 +1571,25 @@
           pillarWireMeshes.push(wire);
         }
 
-        // キャップ＝土台と平行な円盤。全モード共通のタップ起点。選択中はプレイヤー色で発光する。
+        // キャップ＝薄い円盤。全モード共通のタップ起点。選択中はプレイヤー色で発光する。
         const capY = topY + CELL_Y*0.66;
         const coneR = CELL*CAP_RADIUS_RATIO;
         const diskThickness = coneR*0.14;
         const diskGeo = new THREE.CylinderGeometry(coneR, coneR, diskThickness, 28);
         const diskMat = new THREE.MeshStandardMaterial({
-          color: NEUTRAL_DISK_COLOR, roughness:0.4, metalness:0.12,
-          transparent:true, opacity: CAP_IDLE_OPACITY, // 未選択時はより透過
+          color: NEUTRAL_DISK_COLOR, roughness:0.45, metalness:0.20,
+          transparent:true, opacity: CAP_IDLE_OPACITY,
           emissive: 0x000000, emissiveIntensity: 0,
           side: THREE.DoubleSide
         });
         const disk = new THREE.Mesh(diskGeo, diskMat);
         disk.position.set(wx, capY, wz);
         disk.userData = {gx:x, gz:z, isCap:true, isCapDisk:true};
-        // 外周を縁取る輪郭リング（円盤の存在をはっきり示す）。未選択時は少し控えめに
+        // 縁取り輪郭
         const diskOutlineGeo = new THREE.CylinderGeometry(coneR, coneR, diskThickness, 28);
         const diskOutlineMat = new THREE.MeshBasicMaterial({color:0x1a1a1a, side:THREE.BackSide, transparent:true, opacity:0.7});
         const diskOutline = new THREE.Mesh(diskOutlineGeo, diskOutlineMat);
-        diskOutline.scale.set(1.15, 1.4, 1.15); // 半径方向に張り出させ輪郭として見せる
+        diskOutline.scale.set(1.15, 1.4, 1.15);
         diskOutline.userData = {isOutline:true};
         disk.add(diskOutline);
         capGroup.add(disk);
@@ -1564,7 +1617,7 @@
       pts.push(new THREE.Vector3(x, topY, lo), new THREE.Vector3(x, topY, hi));
     }
     const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    const mat = new THREE.LineBasicMaterial({color:0x6f6d66, transparent:true, opacity:0.6});
+    const mat = new THREE.LineBasicMaterial({color:0xF0DDB8, transparent:true, opacity:0.75});
     const lines = new THREE.LineSegments(geo, mat);
     lines.renderOrder = 2;
     group.add(lines);
@@ -1574,74 +1627,50 @@
     gridFloorLines = group;
   }
 
-  // 土台: 玉の半径と同じ厚み、側面4面を色分け
+  // 土台: 丸みのある四角形（ExtrudeGeometry）で高級感のあるR付きフォルム
   function buildBasePlate(){
     const group = new THREE.Group();
     const ballRadius = CELL*0.36;
-    const plateThickness = ballRadius * 2.2; // 厚みは玉直径ほど。台形にするため少し厚めに
-    const topHalf = (SIZE*CELL + CELL*0.6) / 2;       // 上面の半辺
-    const bottomHalf = topHalf + plateThickness * 0.577; // 底面の張り出しを抑え、側面を約60度に立てる
-    const topY = -BOARD_OFFSET_Y - CELL_Y/2;           // 土台上面のY
-    const botY = topY - plateThickness;                // 土台底面のY
+    const plateThickness = ballRadius * 2.2;
+    const topHalf = (SIZE*CELL + CELL*0.6) / 2;
+    const cornerR = Math.min(topHalf * 0.13, CELL * 0.38); // コーナーR
+    const topY = -BOARD_OFFSET_Y - CELL_Y/2;
 
-    // 各面の色（側面4色は方角識別用）
-    const COL_TOP    = 0xD8D6CE; // 上面: 薄いグレー
-    const COL_BOTTOM = 0x16242f; // 底面: さらに濃い藍（基本見えない）
-    const COL_NORTH  = 0x2C4F6B; // -z 北: 藍
-    const COL_SOUTH  = 0x5C4A2F; // +z 南: 墨茶
-    const COL_EAST   = 0x2F5C3E; // +x 東: 深緑
-    const COL_WEST   = 0x6B2C3E; // -x 西: ワイン
+    // 丸みのある四角形シェイプ（上面から見た輪郭）
+    const shape = new THREE.Shape();
+    const w = topHalf, h = topHalf, r = cornerR;
+    shape.moveTo(-w + r, -h);
+    shape.lineTo( w - r, -h);
+    shape.quadraticCurveTo( w, -h,  w, -h + r);
+    shape.lineTo( w,  h - r);
+    shape.quadraticCurveTo( w,  h,  w - r,  h);
+    shape.lineTo(-w + r,  h);
+    shape.quadraticCurveTo(-w,  h, -w,  h - r);
+    shape.lineTo(-w, -h + r);
+    shape.quadraticCurveTo(-w, -h, -w + r, -h);
+    shape.closePath();
 
-    function mat(c){ return new THREE.MeshStandardMaterial({color:c, roughness:0.72, metalness:0.06, side:THREE.DoubleSide}); }
+    const bevelSz = CELL * 0.055;
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: plateThickness,
+      bevelEnabled: true,
+      bevelThickness: bevelSz,
+      bevelSize: bevelSz,
+      bevelSegments: 5,
+      curveSegments: 16
+    });
+    const plateMat = new THREE.MeshStandardMaterial({
+      color: 0xA07848, roughness: 0.58, metalness: 0.18, side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geo, plateMat);
+    // rotation.x=π/2: ローカルZ(押し出し方向)→ワールド-Y(下向き)、シェイプXY→ワールドXZ(水平)
+    mesh.rotation.x = Math.PI / 2;
+    mesh.position.y = topY;
+    mesh.userData = {isBasePlate: true};
+    group.add(mesh);
+    pillarVisualMeshes.push(mesh);
 
-    // 8頂点（上面4 + 底面4）
-    const tNE = [ topHalf, topY,  topHalf], tNW = [-topHalf, topY,  topHalf];
-    const tSE = [ topHalf, topY, -topHalf], tSW = [-topHalf, topY, -topHalf];
-    const bNE = [ bottomHalf, botY,  bottomHalf], bNW = [-bottomHalf, botY,  bottomHalf];
-    const bSE = [ bottomHalf, botY, -bottomHalf], bSW = [-bottomHalf, botY, -bottomHalf];
-
-    // 1枚の四角形パネル(2三角形)を作るヘルパー。p1->p2->p3->p4 は反時計回り想定
-    function quad(p1, p2, p3, p4, color){
-      const geo = new THREE.BufferGeometry();
-      const verts = new Float32Array([
-        ...p1, ...p2, ...p3,
-        ...p1, ...p3, ...p4
-      ]);
-      geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
-      geo.computeVertexNormals();
-      const m = new THREE.Mesh(geo, mat(color));
-      m.receiveShadow = true;
-      m.userData = {isBasePlate:true};
-      group.add(m);
-      pillarVisualMeshes.push(m); // 回転ドラッグの判定対象
-      return m;
-    }
-
-    // 上面（+y方向から見て見える向き）
-    quad(tSW, tSE, tNE, tNW, COL_TOP);
-    // 底面
-    quad(bNW, bNE, bSE, bSW, COL_BOTTOM);
-    // 側面4枚（上辺=上面の辺、下辺=底面の辺で、外側に広がる台形）
-    // 南面 (z = -topHalf 側, -z方向)
-    quad(tSW, tSE, bSE, bSW, COL_SOUTH);
-    // 北面 (z = +topHalf 側, +z方向)
-    quad(tNE, tNW, bNW, bNE, COL_NORTH);
-    // 東面 (x = +topHalf 側, +x方向)
-    quad(tSE, tNE, bNE, bSE, COL_EAST);
-    // 西面 (x = -topHalf 側, -x方向)
-    quad(tNW, tSW, bSW, bNW, COL_WEST);
-
-    // 稜線（輪郭）を強調
-    const edgePts = [
-      tNE,tNW, tNW,tSW, tSW,tSE, tSE,tNE,       // 上面の枠
-      bNE,bNW, bNW,bSW, bSW,bSE, bSE,bNE,       // 底面の枠
-      tNE,bNE, tNW,bNW, tSW,bSW, tSE,bSE        // 縦の稜線
-    ];
-    const edgeGeo = new THREE.BufferGeometry().setFromPoints(edgePts.map(p=>new THREE.Vector3(p[0],p[1],p[2])));
-    const edges = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({color:0x1a1a1a, transparent:true, opacity:0.75}));
-    group.add(edges);
-
-    // ホームポジションの目印（基準角 (0,0) 側の角に低いコーンを立てる）
+    // ホームポジションの目印
     addHomeMarker(group, topY);
 
     // 玉の真下に落ちる薄い疑似影（真上光源の想定）。土台のすぐ上にZファイティングを避けて配置
@@ -1709,21 +1738,27 @@
         updateShadow(x,z);
   }
 
-  // 基準柱(0,0)に対応する土台の角に、邪魔にならない低いコーンを置く
+  // 基準柱(0,0)に対応する土台の角に、ボタン状の円柱マーカーを置く
   function addHomeMarker(group, topY){
-    // 初期カメラ向きで手前に見える角 (x=0, z=SIZE-1) にホームマーカーを置く
     const corner = gridToWorld(0, 0, SIZE-1);
     const margin = CELL * 0.5;
-    const mx = corner.x - margin; // 外側(x負方向)へ
-    const mz = corner.z + margin; // 外側(z正方向=手前)へ
-    const coneR = CELL * 0.18;
-    const coneH = coneR * 1.73; // 正三角形に近い比率（底辺:高さ ≒ 1:0.866）。低く横長に
-    const coneGeo = new THREE.ConeGeometry(coneR, coneH, 20);
-    const coneMat = new THREE.MeshStandardMaterial({color:0xE8B23D, roughness:0.4, metalness:0.25, emissive:0x6b4e15, emissiveIntensity:0.3});
-    const cone = new THREE.Mesh(coneGeo, coneMat);
-    cone.position.set(mx, topY + coneH/2, mz);
-    addToonOutline(cone, coneGeo, OUTLINE_PIECE);
-    group.add(cone);
+    const mx = corner.x - margin;
+    const mz = corner.z + margin;
+    const btnR  = CELL * 0.18;
+    const btnH  = btnR * 0.62; // 低い円柱（ボタン感）
+    const domeR = btnR * 0.90;
+    const btnMat = new THREE.MeshStandardMaterial({color:0xF5D700, roughness:0.28, metalness:0.30, emissive:0x806000, emissiveIntensity:0.22});
+    // ボタン本体（わずかに上が細いテーパー）
+    const bodyGeo = new THREE.CylinderGeometry(domeR, btnR, btnH, 32);
+    const body = new THREE.Mesh(bodyGeo, btnMat);
+    body.position.set(mx, topY + btnH/2, mz);
+    addToonOutline(body, bodyGeo, OUTLINE_PIECE);
+    group.add(body);
+    // ドームトップ（球の上半分）でボタン感を強調
+    const domeGeo = new THREE.SphereGeometry(domeR, 24, 12, 0, Math.PI*2, 0, Math.PI/2);
+    const dome = new THREE.Mesh(domeGeo, btnMat);
+    dome.position.set(mx, topY + btnH, mz);
+    group.add(dome);
   }
 
   function pieceMaterial(player){
@@ -1944,7 +1979,8 @@
         }
       } else {
         const cap = pickCap(e.clientX, e.clientY);
-        renderer.domElement.style.cursor = cap ? 'pointer' : 'grab';
+        const dot = document.getElementById('cursor-dot');
+        if(dot) dot.classList.toggle('on-cap', !!cap);
       }
     });
 
@@ -2319,22 +2355,50 @@
   function chooseCpuMove(){
     const cols = legalColumns();
     if(cols.length === 0) return null;
-    const opp = 3 - cpuPlayer; // 相手（あなた）の手番
-    // 1. CPUが即勝てる手
+    const opp = 3 - cpuPlayer;
+    const center = (SIZE-1)/2;
+
+    function weightedRandom(pool, bias){
+      const weighted = [];
+      pool.forEach(c=>{
+        const d = Math.abs(c.x-center) + Math.abs(c.z-center);
+        const w = Math.max(1, Math.round((SIZE*bias - d)));
+        for(let i=0;i<w;i++) weighted.push(c);
+      });
+      return weighted[Math.floor(Math.random()*weighted.length)];
+    }
+
+    if(cpuStrength === 'easy'){
+      // 弱: ランダム（中央バイアスなし）
+      return cols[Math.floor(Math.random()*cols.length)];
+    }
+
+    // 普通・強 共通: 即勝ち→ブロック
     const win = cols.find(c => wouldWinAt(c.x, c.z, cpuPlayer));
     if(win) return win;
-    // 2. 相手の即勝ちを防ぐ手
     const block = cols.find(c => wouldWinAt(c.x, c.z, opp));
     if(block) return block;
-    // 3. 中央付近をやや好むランダム。強すぎないCPUにする。
-    const center = (SIZE-1)/2;
-    const weighted = [];
-    cols.forEach(c=>{
-      const d = Math.abs(c.x-center) + Math.abs(c.z-center);
-      const w = Math.max(1, Math.round((SIZE*1.5 - d)));
-      for(let i=0;i<w;i++) weighted.push(c);
-    });
-    return weighted[Math.floor(Math.random()*weighted.length)];
+
+    if(cpuStrength === 'hard'){
+      // 強: 置いた後に相手が即勝ちできる手を避ける
+      const safeCols = cols.filter(c => {
+        const y = heights[c.x][c.z];
+        if(y >= SIZE) return false;
+        board[c.x][c.z][y] = cpuPlayer;
+        heights[c.x][c.z]++;
+        let oppCanWin = false;
+        for(const oc of legalColumns()){
+          if(wouldWinAt(oc.x, oc.z, opp)){ oppCanWin = true; break; }
+        }
+        board[c.x][c.z][y] = 0;
+        heights[c.x][c.z]--;
+        return !oppCanWin;
+      });
+      return weightedRandom(safeCols.length > 0 ? safeCols : cols, 2.0);
+    }
+
+    // 普通: 中央重み付きランダム
+    return weightedRandom(cols, 1.5);
   }
 
   function scheduleCpuTurn(){
