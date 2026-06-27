@@ -677,6 +677,24 @@
     .player-setup-row .p-label{ width: auto; }
   }
 
+  /* スマホ縦向き: players と controls が重ならないよう縦積みにする */
+  @media (max-width: 680px) and (orientation: portrait){
+    .footer-panel{
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      padding-bottom: 14px;
+    }
+    .players{
+      position: static;
+      transform: none;
+      bottom: auto;
+      left: auto;
+    }
+    .controls{ justify-content: center; }
+  }
+
   /* スマホ横向き（低い画面高さ）: 上下を圧迫しないよう、情報を左右に配置 */
   @media (orientation: landscape) and (max-height: 480px){
     header{ padding: 8px 12px 0; }
@@ -988,7 +1006,7 @@
 
       <button class="start-btn" id="startBtn">ゲームスタート</button>
       <div class="setup-warning" id="setupWarning"></div>
-      <div class="app-footer">v1.20 ／ © 2026 mifuji</div>
+      <div class="app-footer">v1.21 ／ © 2026 mifuji</div>
     </div>
   </div>
 
