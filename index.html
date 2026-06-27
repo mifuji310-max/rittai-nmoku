@@ -382,29 +382,65 @@
     bottom: 0; left: 0; right: 0;
     z-index: 6;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    align-items: flex-end;
+    justify-content: flex-end;
     padding: 12px 14px 14px;
     pointer-events: none;
     background: linear-gradient(to top, rgba(255,255,255,0.96), rgba(255,255,255,0));
   }
   .players{
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
     display: flex;
-    gap: 8px;
+    gap: 10px;
     pointer-events: auto;
+    white-space: nowrap;
   }
   .player-tag{
     display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    font-size: 12px;
     letter-spacing: 0.03em;
     color: var(--ink-dim);
-    padding: 6px 10px;
+    padding: 8px 14px 9px;
     border: 1px solid var(--line);
-    border-radius: 16px;
-    background: rgba(255,255,255,0.75);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.85);
     transition: all 0.25s ease;
+    position: relative;
+  }
+  .p-tag-top{
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--ink-dim);
+  }
+  .p-tag-role{ white-space: nowrap; }
+  .p-name{
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--ink-dim);
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .p-tag-score{
+    font-size: 10.5px;
+    color: var(--ink-dim);
+    letter-spacing: 0.03em;
+  }
+  .p-tag-score .score{
+    font-family: 'Zen Old Mincho', serif;
+    font-size: 12px;
+    font-weight: 600;
   }
   .player-tag .swatch{
     width: 11px; height: 11px;
@@ -412,30 +448,79 @@
     flex-shrink: 0;
   }
   .player-tag.active{
-    color: var(--ink);
     border-color: var(--line-strong);
     background: var(--panel);
   }
+  .player-tag.active .p-tag-top,
+  .player-tag.active .p-tag-score{ color: var(--ink); }
   .stamp-btn{
-    width: 32px; height: 32px;
+    width: 34px; height: 34px;
     border-radius: 50%;
     border: 1px solid var(--line);
-    background: rgba(255,255,255,0.75);
+    background: rgba(255,255,255,0.85);
     color: var(--ink-dim);
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
     cursor: pointer;
+    align-self: center;
   }
   .stamp-btn svg{ width: 16px; height: 16px; }
   .stamp-btn:active{ transform: scale(0.92); background: var(--panel-2); }
-  .player-tag .score{
-    font-family: 'Zen Old Mincho', serif;
-    font-size: 13px;
-    color: var(--ink);
-    margin-left: 1px;
+
+  /* ---------- スタンプ吹き出し（プレイヤータグから） ---------- */
+  .stamp-bubble{
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 50%;
+    transform: translateX(-50%) translateY(6px);
+    background: rgba(18,18,18,0.90);
+    color: #fff;
+    border-radius: 14px;
+    padding: 10px 18px 12px;
+    text-align: center;
+    pointer-events: none;
+    min-width: 72px;
+    max-width: 200px;
+    white-space: normal;
+    z-index: 20;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.28);
   }
-  .player-tag .p-name{
-    display: inline; /* オンライン対戦時にJSが名前を入れる */
+  .stamp-bubble::after{
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 8px solid transparent;
+    border-top-color: rgba(18,18,18,0.90);
+  }
+  .stamp-bubble.show{
+    display: block;
+    animation: stampBubbleIn 0.25s cubic-bezier(.2,.9,.25,1) forwards,
+               stampBubbleOut 0.35s ease forwards;
+    animation-delay: 0s, 2.65s;
+  }
+  .stamp-bubble-name{
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 5px;
+  }
+  .stamp-bubble-text{
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.3;
+  }
+  @keyframes stampBubbleIn{
+    from{ opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.88); }
+    to{   opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  }
+  @keyframes stampBubbleOut{
+    from{ opacity: 1; transform: translateX(-50%) translateY(0); }
+    to{   opacity: 0; transform: translateX(-50%) translateY(-8px); }
   }
 
   .controls{
@@ -582,9 +667,10 @@
 
   @media (max-width: 680px){
     .brand{ font-size: 17px; }
-    .footer-panel{ flex-direction: column; gap: 10px; align-items: flex-start; padding-bottom: 14px;}
-    .players{ gap: 8px; flex-wrap: wrap; }
-    .player-tag{ font-size: 10px; padding: 5px 8px;}
+    .footer-panel{ align-items: flex-end; padding-bottom: 14px; }
+    .players{ gap: 8px; }
+    .player-tag{ padding: 6px 10px 7px; }
+    .p-tag-top{ font-size: 12px; }
     .result-kanji{ font-size: 38px; }
     .setup-card{ padding: 36px 22px 30px; }
     .player-setup-row{ flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -602,8 +688,10 @@
 
     /* フッターは横一列に戻し、高さを抑える */
     .footer-panel{ flex-direction: row; align-items: flex-end; padding: 8px 12px 8px; }
-    .players{ flex-direction: column; gap: 5px; flex-wrap: nowrap; }
-    .player-tag{ font-size: 10px; padding: 4px 8px; }
+    .players{ flex-direction: row; gap: 6px; flex-wrap: nowrap; bottom: 8px; }
+    .player-tag{ padding: 5px 8px 6px; }
+    .p-tag-top{ font-size: 11px; }
+    .p-tag-score{ font-size: 9.5px; }
     .controls{ flex-direction: column; gap: 6px; }
     .ctrl-btn{ padding: 7px 10px; font-size: 10px; }
     .ctrl-btn .btn-label{ display: none; } /* 横向きはアイコンのみで省スペース */
@@ -762,53 +850,8 @@
   .stamp-free-send:active{ transform: scale(0.96); }
   .stamp-free-send:disabled{ opacity: 0.35; }
 
-  /* ---------- 画面中央スタンプ表示 ---------- */
-  .stamp-center-layer{
-    position: absolute; inset: 0;
-    z-index: 15;
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-  }
-  .stamp-center-bubble{
-    background: rgba(18,18,18,0.86);
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 18px;
-    padding: 18px 36px 20px;
-    max-width: 78vw;
-    text-align: center;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.28);
-    animation: stampCenterIn 0.28s cubic-bezier(.2,.9,.25,1) forwards,
-               stampCenterOut 0.35s ease forwards;
-    animation-delay: 0s, 2.65s;
-    opacity: 0;
-  }
-  .stamp-center-name{
-    font-size: 11.5px;
-    letter-spacing: 0.1em;
-    color: rgba(255,255,255,0.55);
-    margin-bottom: 8px;
-    font-weight: 400;
-  }
-  .stamp-center-text{
-    font-size: 26px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    line-height: 1.3;
-  }
-  @keyframes stampCenterIn{
-    from{ opacity: 0; transform: scale(0.82); }
-    to{   opacity: 1; transform: scale(1); }
-  }
-  @keyframes stampCenterOut{
-    from{ opacity: 1; transform: scale(1); }
-    to{   opacity: 0; transform: scale(0.92) translateY(-8px); }
-  }
+  /* ---------- 旧中央スタンプ（廃止・非表示） ---------- */
+  .stamp-center-layer{ display: none; }
 
   /* ---------- 観戦者バー ---------- */
   .spectator-bar{
@@ -828,10 +871,6 @@
     text-overflow: ellipsis;
   }
   .spectator-bar.show{ display: block; }
-  .player-tag .p-name{
-    font-size: 11px; font-weight: 500; color: var(--ink); margin-left: 3px;
-    max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
 
   /* オンライン選択時のコンパクト表示（通常モードの見た目はそのまま） */
   .setup-card.compact{ padding-top: 20px; padding-bottom: 22px; }
@@ -991,10 +1030,20 @@
     <div class="footer-panel">
       <div class="players">
         <div class="player-tag active" id="p1Tag">
-          <div class="swatch" id="p1Swatch"></div>先手<span class="score" id="p1Score">0</span>
+          <div class="stamp-bubble" id="p1Bubble"></div>
+          <div class="p-tag-top">
+            <div class="swatch" id="p1Swatch"></div>
+            <span class="p-tag-role">先手</span><span class="p-name"></span>
+          </div>
+          <div class="p-tag-score">勝利数：<span class="score" id="p1Score">0</span></div>
         </div>
         <div class="player-tag" id="p2Tag">
-          <div class="swatch" id="p2Swatch"></div>後手<span class="score" id="p2Score">0</span>
+          <div class="stamp-bubble" id="p2Bubble"></div>
+          <div class="p-tag-top">
+            <div class="swatch" id="p2Swatch"></div>
+            <span class="p-tag-role">後手</span><span class="p-name"></span>
+          </div>
+          <div class="p-tag-score">勝利数：<span class="score" id="p2Score">0</span></div>
         </div>
         <button class="stamp-btn" id="stampBtn" title="スタンプを送る" style="display:none;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
@@ -2791,8 +2840,8 @@
       document.getElementById('gameScreen').classList.add('show');
       const undo=document.getElementById('undoBtn'); if(undo) undo.style.display='none';
       const reset=document.getElementById('resetBtn'); if(reset) reset.style.display='none';
-      const playAgain=document.getElementById('playAgainBtn'); if(playAgain) playAgain.textContent='もう一回';
-      const changeSetup=document.getElementById('changeSetupBtn'); if(changeSetup) changeSetup.textContent='退室する';
+      const playAgain=document.getElementById('playAgainBtn'); if(playAgain) playAgain.textContent='同じルールで再戦';
+      const changeSetup=document.getElementById('changeSetupBtn'); if(changeSetup) changeSetup.textContent='退室する（ルール変更）';
     }
 
     function showWaiting(code){
@@ -3039,11 +3088,11 @@
 
     // ---- 名前・バナー表示 ----
     function nameForPlayer(p, players){
-      if(!api.meta) return p===1?'先手':'後手';
+      if(!api.meta) return '';
       const hostIsP1 = (api.meta.turnFirst==='host');
       const seat = (p===1) ? (hostIsP1?'host':'guest') : (hostIsP1?'guest':'host');
       const info = players && players[seat];
-      return (info && info.name) ? info.name : (p===1?'先手':'後手');
+      return (info && info.name) ? info.name : '';
     }
     function updateNames(players){
       ensureNameSpan('p1Tag'); ensureNameSpan('p2Tag');
@@ -3109,14 +3158,25 @@
       currentSpectators={};
       updateSpectatorBar();
       gameMode='human';
+      // metaCbがオンライン中に上書きしたSIZE等をUI選択値に戻す
+      const szEl = document.querySelector('#sizeChips .chip.active');
+      if(szEl) SIZE = parseInt(szEl.dataset.size) || 4;
+      const wnEl = document.querySelector('#winChips .chip.active');
+      if(wnEl) WIN_LEN = parseInt(wnEl.dataset.win) || 4;
+      const p1El = document.querySelector('#p1Colors .color-swatch.selected');
+      if(p1El) p1ColorId = p1El.dataset.colorId || 'red';
+      const p2El = document.querySelector('#p2Colors .color-swatch.selected');
+      if(p2El) p2ColorId = p2El.dataset.colorId || 'blue';
       // 隠していたローカル用ボタンを元に戻す
       const undo=document.getElementById('undoBtn'); if(undo) undo.style.display='';
       const reset=document.getElementById('resetBtn'); if(reset) reset.style.display='';
       const changeSetup=document.getElementById('changeSetupBtn'); if(changeSetup) changeSetup.textContent='設定を変える';
-      // スタンプ関連UIも後片付け
+      // スタンプ吹き出しをリセット
+      ['p1Bubble','p2Bubble'].forEach(id=>{
+        const b=document.getElementById(id); if(b){ b.classList.remove('show'); b.innerHTML=''; }
+      });
       const stampBtn=document.getElementById('stampBtn'); if(stampBtn) stampBtn.style.display='none';
       const stampOverlay=document.getElementById('stampSheetOverlay'); if(stampOverlay) stampOverlay.classList.remove('show');
-      const bubbleLayer=document.getElementById('stampBubbleLayer'); if(bubbleLayer) bubbleLayer.innerHTML='';
       const freeInput=document.getElementById('stampFreeInput'); if(freeInput) freeInput.value='';
     };
 
@@ -3203,28 +3263,37 @@
     if(e.key === 'Enter'){ e.preventDefault(); sendFreeStamp(); }
   });
 
-  // 画面中央に発言者名＋スタンプテキストを大きく表示する
+  // プレイヤータグから吹き出しでスタンプを表示する
   // data: {role:'player', player:1|2, text} または {role:'spectator', name, text}
   function showStampBubble(data){
-    const layer = document.getElementById('stampCenterLayer');
-    if(!layer || !data || !data.text) return;
+    if(!data || !data.text) return;
 
-    let name;
+    let name, bubbleId;
     if(data.role === 'spectator'){
       name = (data.name || '観戦者') + '（観戦）';
+      bubbleId = 'p1Bubble';
     } else {
       const p = data.player;
+      const roleEl = document.querySelector('#p' + p + 'Tag .p-tag-role');
       const nameEl = document.querySelector('#p' + p + 'Tag .p-name');
-      const raw = nameEl ? nameEl.textContent.replace('（あなた）','').trim() : '';
-      name = raw || (p===1 ? '先手' : '後手');
+      const roleTxt = roleEl ? roleEl.textContent : (p===1?'先手':'後手');
+      const nameTxt = nameEl ? nameEl.textContent.replace('（あなた）','').trim() : '';
+      name = nameTxt || roleTxt;
+      bubbleId = 'p' + p + 'Bubble';
     }
 
-    const el = document.createElement('div');
-    el.className = 'stamp-center-bubble';
-    el.innerHTML = '<div class="stamp-center-name">' + name + '</div>'
-                 + '<div class="stamp-center-text">' + data.text + '</div>';
-    layer.appendChild(el);
-    setTimeout(()=>{ el.remove(); }, 3100);
+    const bubble = document.getElementById(bubbleId);
+    if(!bubble) return;
+
+    bubble.innerHTML = '<div class="stamp-bubble-name">' + name + '</div>'
+                     + '<div class="stamp-bubble-text">' + data.text + '</div>';
+    bubble.classList.remove('show');
+    void bubble.offsetWidth;
+    bubble.classList.add('show');
+    setTimeout(()=>{
+      bubble.classList.remove('show');
+      setTimeout(()=>{ bubble.innerHTML = ''; }, 400);
+    }, 3100);
   }
 
 })();
