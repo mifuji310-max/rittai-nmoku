@@ -949,7 +949,7 @@
 
       <button class="start-btn" id="startBtn">ゲームスタート</button>
       <div class="setup-warning" id="setupWarning"></div>
-      <div class="app-footer">v1.1 ／ © 2026 mifuji</div>
+      <div class="app-footer">v1.2 ／ © 2026 mifuji</div>
     </div>
   </div>
 
@@ -978,7 +978,7 @@
         <div class="turn-dot" id="turnDot"></div>
         <div class="turn-text" id="turnText">先手の番</div>
         <div class="turn-sep"></div>
-        <div class="turn-win" id="turnWin">4連</div>
+        <div class="turn-win" id="turnWin">勝利条件：4連</div>
       </div>
       <div class="net-banner" id="netBanner"></div>
       <div class="spectator-bar" id="spectatorBar"></div>
@@ -1389,7 +1389,7 @@
 
     document.getElementById('brandSub').textContent = `${SIZE}×${SIZE}×${SIZE} ／ ${gameMode==='cpu' ? 'CPU戦' : '2人対戦'}`;
     const _twEl = document.getElementById('turnWin');
-    if(_twEl) _twEl.textContent = `${WIN_LEN}連`;
+    if(_twEl) _twEl.textContent = `勝利条件：${WIN_LEN}連`;
     initBoard();
     ALL_LINES = generateLines();
 
