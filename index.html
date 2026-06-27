@@ -341,6 +341,19 @@
     letter-spacing: 0.04em;
     font-weight: 500;
   }
+  .turn-sep{
+    width: 1px; height: 11px;
+    background: rgba(26,26,26,0.18);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+  .turn-win{
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+    font-weight: 600;
+    opacity: 0.55;
+  }
 
   /* 確定ヒント: 手番表示のすぐ下、盤面（3D描画）と重ならない画面上部に配置 */
   .confirm-hint{
@@ -964,6 +977,8 @@
       <div class="turn-banner" id="turnBanner">
         <div class="turn-dot" id="turnDot"></div>
         <div class="turn-text" id="turnText">先手の番</div>
+        <div class="turn-sep"></div>
+        <div class="turn-win" id="turnWin">4連</div>
       </div>
       <div class="net-banner" id="netBanner"></div>
       <div class="spectator-bar" id="spectatorBar"></div>
@@ -1372,7 +1387,9 @@
     BOARD_OFFSET = (SIZE-1) * CELL / 2;
     BOARD_OFFSET_Y = (SIZE-1) * CELL_Y / 2;
 
-    document.getElementById('brandSub').textContent = `${SIZE}×${SIZE}×${SIZE} ／ ${WIN_LEN}連勝利 ／ ${gameMode==='cpu' ? 'CPU戦' : '2人対戦'}`;
+    document.getElementById('brandSub').textContent = `${SIZE}×${SIZE}×${SIZE} ／ ${gameMode==='cpu' ? 'CPU戦' : '2人対戦'}`;
+    const _twEl = document.getElementById('turnWin');
+    if(_twEl) _twEl.textContent = `${WIN_LEN}連`;
     initBoard();
     ALL_LINES = generateLines();
 
@@ -2812,6 +2829,10 @@
         if(api.mySeat==='host' && p.host && p.host.connected && p.guest && p.guest.connected
            && api.meta && api.meta.status==='waiting'){
           netRef.child('meta/status').set('playing');
+        }
+        // ゲストとして参加中に自分のエントリが消えた（ホストが部屋を作り直した）→ 再登録
+        if(api.mySeat==='guest' && api.online && !api.launched && !p.guest){
+          netRef.child('players/guest').set({ id:clientId, name:myName, connected:true });
         }
         updateOpponentBanner();
         updateTurnBannerSafe();
